@@ -19,3 +19,4 @@ tracing = ["arize-phoenix>=4.0.0", "openinference-instrumentation>=0.1.0"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+addopts = "-p no:phoenix"
