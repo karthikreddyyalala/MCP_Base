@@ -1,34 +1,45 @@
 # MCP Knowledge Base
 
-> MCP server that turns any folder of markdown docs into a searchable knowledge base for Claude Desktop and Cursor.  
-> Deploy in 5 minutes. Works with any MCP client. Zero external accounts.
+Every company has internal docs — runbooks, onboarding guides, API references — sitting in a folder somewhere, completely invisible to the AI tools their teams use every day. This project fixes that.
+
+It's an MCP server that indexes a folder of markdown files and gives Claude Desktop (or any MCP client) two tools: one to search those docs semantically, one to list what's available. Answers come with exact citations — `[source: runbook.md:L18-L24]` — so you always know where the information came from.
+
+No Pinecone account. No OpenAI key. No cloud infrastructure. Everything runs locally.
 
 ---
 
-## How it works
+## Why I built this
+
+Three job listings I was reading — Anthropic, DevRev, and ICON — all mentioned MCP in their requirements. Not as a nice-to-have. As a core skill.
+
+I wanted to understand it from the inside, not just read the docs. So I picked a problem I kept hearing about in engineering teams: "we have all this internal documentation but our AI assistant doesn't know about it." Built the thing that solves it.
+
+The interesting part wasn't wiring up the vector store. It was figuring out what makes a RAG system actually trustworthy — which is why every result includes a line number citation. A system that tells you something without telling you *where* it found it isn't useful in a professional context. You can't verify it, you can't trust it, you can't improve it.
+
+---
+
+## What it does
 
 ```
-your-docs/          ← any folder of .md files
-     │
-     ▼
+your-docs/            ← any folder of .md files
+      │
+      ▼
 python3 index.py --docs ./your-docs
-     │  chunks markdown → embeds with all-MiniLM-L6-v2 (local, offline)
-     ▼
-~/.mcp-kb/chroma/   ← vector store lives on disk
-     │
-     ▼
-python3 src/server.py   ← MCP server (stdio transport)
-     │
-     ├─ search_docs("how to rollback?")
-     │      → top-5 chunks + [source: runbook.md:L18-L24]
-     │
-     └─ list_docs()
-            → "Indexed: onboarding.md, runbook.md, api-reference.md"
+      │  chunks text → embeds with all-MiniLM-L6-v2 (offline)
+      ▼
+~/.mcp-kb/chroma/     ← vector store on disk
+      │
+      ▼
+python3 src/server.py ← MCP server (stdio transport)
+      │
+      ├─ search_docs("how do I roll back?")
+      │      → top-5 chunks + [source: runbook.md:L8-L14]
+      │
+      └─ list_docs()
+             → "api-reference.md, deployment-runbook.md, onboarding.md"
 ```
 
-1. Run `index.py` once — chunks your `.md` files and stores vectors locally (ChromaDB).
-2. The MCP server loads that index on startup.
-3. Claude gets two tools: **`search_docs`** (semantic search with cited answers) and **`list_docs`** (see what's indexed).
+Run the indexer once. Connect the server to Claude Desktop. Ask questions in plain English. Get cited answers from your actual documentation.
 
 ---
 
@@ -39,10 +50,10 @@ git clone https://github.com/karthikreddyyalala/MCP_Base.git
 cd MCP_Base
 pip install -e .
 
-# Index the example docs (run once; re-run when your docs change)
+# Index the included example docs
 python3 index.py --docs ./example-docs
 
-# Verify the server responds
+# Confirm the server starts and lists its tools
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}\n' \
   | PYTHONPATH=. python3 src/server.py
 ```
@@ -51,7 +62,7 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
 
 ## Connect to Claude Desktop
 
-Add this block to `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Add this to `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
@@ -69,10 +80,11 @@ Add this block to `~/Library/Application Support/Claude/claude_desktop_config.js
 }
 ```
 
-Restart Claude Desktop. Try:
+Restart Claude Desktop. You'll see a hammer icon in the chat input — that's your knowledge base. Try:
+
 - *"What docs do you have access to?"*
-- *"How do I roll back a deployment?"*
-- *"What authentication does the API use?"*
+- *"How do I roll back a bad deployment?"*
+- *"What authentication does the API require?"*
 
 ---
 
@@ -84,40 +96,56 @@ If error rate spikes, run rollback: ./scripts/rollback.sh <previous-sha>
 This redeploys the previous image tag. Takes ~3 minutes. Notify #incidents in Slack.
 ```
 
+The citation tells you exactly where in the file that answer came from. You can verify it, share it, or update it.
+
 ---
 
-## Tools exposed
+## Tools
 
-| Tool | Input | Returns |
-|------|-------|---------|
-| `search_docs(query)` | Natural language question | Top-5 chunks with `[source: file.md:L42-L58]` citations |
-| `list_docs()` | — | Sorted list of indexed markdown filenames |
+| Tool | What it does |
+|------|-------------|
+| `search_docs(query)` | Semantic search over indexed docs. Returns top-5 chunks with `[source: file.md:L42-L58]` citations. |
+| `list_docs()` | Lists every markdown file currently in the index. |
+
+---
+
+## Technical decisions worth knowing about
+
+**Why ChromaDB over Pinecone?** The README promise is "deploy in 5 minutes." Requiring a Pinecone signup breaks that. ChromaDB is a single pip install, stores vectors on disk, and needs no account. The right tool for local-first software.
+
+**Why `all-MiniLM-L6-v2`?** It's 80MB, downloads once, runs fully offline after that, and produces strong semantic embeddings for English prose. For a knowledge base over internal documentation, it's more than sufficient.
+
+**Why line-range citations?** A RAG system that tells you something without telling you where it came from is a liability. Line numbers mean you can open the source file, verify the answer, and notice when documentation is out of date.
+
+**Why 400-token chunks with 50-token overlap?** Long enough to capture full thoughts, short enough to retrieve precisely. The overlap prevents context from being cut at chunk boundaries.
 
 ---
 
 ## Stack
 
-| Component | Library | Why |
-|-----------|---------|-----|
-| MCP server | [`mcp`](https://github.com/anthropics/mcp) | Official Anthropic SDK — stdio transport |
-| Vector store | [`chromadb`](https://www.trychroma.com/) | Local, no account needed |
-| Embeddings | [`sentence-transformers`](https://www.sbert.net/) `all-MiniLM-L6-v2` | Runs fully offline after first download |
-| CLI | [`typer`](https://typer.tiangolo.com/) | Clean `--docs` / `--db` flags |
+| Component | Library |
+|-----------|---------|
+| MCP server | [`mcp`](https://github.com/anthropics/mcp) — Anthropic's official SDK |
+| Vector store | [`chromadb`](https://www.trychroma.com/) — local, no account |
+| Embeddings | [`sentence-transformers`](https://www.sbert.net/) `all-MiniLM-L6-v2` |
+| CLI | [`typer`](https://typer.tiangolo.com/) |
 
 ---
 
-## Indexing your own docs
+## Using your own docs
 
 ```bash
 python3 index.py --docs /path/to/your/docs --db /path/to/store/vectors
 ```
 
-Point `KB_DOCS_PATH` and `KB_DB_PATH` in the Claude Desktop config to the same paths. Re-run `index.py` whenever your docs change.
+Update `KB_DOCS_PATH` and `KB_DB_PATH` in the Claude Desktop config to match. Re-run `index.py` whenever your docs change — it rebuilds the index from scratch each time.
 
 ---
 
-## Running tests
+## Tests
 
 ```bash
 pytest tests/ -v
 ```
+
+8 tests covering chunking logic, index construction, search result format, citation format, and source listing.
