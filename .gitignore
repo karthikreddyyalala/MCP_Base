@@ -1,0 +1,10 @@
+__pycache__/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.pyc
+.env
+.venv/
+venv/
+~/.mcp-kb/
