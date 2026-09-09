@@ -5,37 +5,53 @@ from src.config import Settings
 
 
 def chunk_markdown(text: str, chunk_size: int = 400, chunk_overlap: int = 50) -> list[dict]:
-    """Split text into overlapping chunks, tracking approximate line numbers."""
-    words = text.split()
-    if not words:
+    """Split markdown into chunks; each chunk is prefixed with its nearest ## header."""
+    import re
+    lines = text.splitlines(keepends=True)
+    if not lines:
         return []
 
-    lines = text.splitlines()
+    # Split into sections at ## headers
+    sections: list[tuple[str, list[tuple[int, str]]]] = []
+    current_header = ""
+    current_lines: list[tuple[int, str]] = []
+    for i, line in enumerate(lines, 1):
+        if re.match(r"^#{1,3} ", line):
+            if current_lines:
+                sections.append((current_header, current_lines))
+            current_header = line.rstrip()
+            current_lines = []
+        else:
+            current_lines.append((i, line))
+    if current_lines:
+        sections.append((current_header, current_lines))
+
     chunks = []
-    start = 0
+    for header, line_tuples in sections:
+        body_words: list[str] = []
+        line_numbers: list[int] = []
+        for lineno, line in line_tuples:
+            for word in line.split():
+                body_words.append(word)
+                line_numbers.append(lineno)
 
-    while start < len(words):
-        end = min(start + chunk_size, len(words))
-        chunk_text = " ".join(words[start:end])
+        if not body_words:
+            continue
 
-        # Approximate line numbers by scanning accumulated word counts
-        start_line, end_line = 1, len(lines)
-        accumulated = 0
-        found_start = False
-        for i, line in enumerate(lines):
-            accumulated += len(line.split())
-            if not found_start and accumulated >= start:
-                start_line = i + 1
-                found_start = True
-            if accumulated >= end:
-                end_line = i + 1
+        start = 0
+        while start < len(body_words):
+            end = min(start + chunk_size, len(body_words))
+            chunk_text = " ".join(body_words[start:end])
+            if header:
+                chunk_text = header + "\n\n" + chunk_text
+            chunks.append({
+                "text": chunk_text,
+                "start_line": line_numbers[start],
+                "end_line": line_numbers[end - 1],
+            })
+            if end == len(body_words):
                 break
-
-        chunks.append({"text": chunk_text, "start_line": start_line, "end_line": end_line})
-
-        if end == len(words):
-            break
-        start = end - chunk_overlap
+            start = end - chunk_overlap
 
     return chunks
 
