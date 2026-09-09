@@ -171,4 +171,25 @@ Update `KB_DOCS_PATH` and `KB_DB_PATH` in the Claude Desktop config to match. Re
 pytest tests/ -v
 ```
 
-8 tests covering chunking logic, index construction, search result format, citation format, and source listing.
+10 tests covering chunking logic (including header-aware behavior), index construction, search result format, citation format, and source listing.
+
+---
+
+## Retrieval Evaluation
+
+```bash
+# Re-index then measure Recall@5 and MRR
+PYTHONPATH=. python3 eval.py --docs ./example-docs --rebuild
+```
+
+Output:
+```
+Metric             Value
+-------------------------
+Recall@5           1.000  (20/20)
+MRR                0.925
+
+Gold set: 20 questions across 3 docs
+```
+
+Evaluated against 20 gold questions across the 3 example docs. Metrics: **Recall@5** (did the right document appear in top-5 results?) and **MRR** (Mean Reciprocal Rank — how high did it rank?). Score improved after switching to the header-aware chunker, which prefixes each chunk with its section heading to preserve context.
