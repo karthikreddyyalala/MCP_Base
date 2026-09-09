@@ -1,6 +1,7 @@
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from src.config import Settings
+from src.tracing import search_span
 
 
 def _get_collection(settings: Settings):
@@ -10,13 +11,14 @@ def _get_collection(settings: Settings):
 
 
 def search(query: str, settings: Settings) -> list[dict]:
-    """Return top-k chunks with citation strings."""
     col = _get_collection(settings)
-    results = col.query(query_texts=[query], n_results=settings.top_k, include=["documents", "metadatas"])
-    output = []
-    for text, meta in zip(results["documents"][0], results["metadatas"][0]):
-        citation = f"[source: {meta['source']}:L{meta['start_line']}-L{meta['end_line']}]"
-        output.append({"text": text, "source": meta["source"], "citation": citation})
+    with search_span(query) as span:
+        results = col.query(query_texts=[query], n_results=settings.top_k, include=["documents", "metadatas"])
+        output = []
+        for text, meta in zip(results["documents"][0], results["metadatas"][0]):
+            citation = f"[source: {meta['source']}:L{meta['start_line']}-L{meta['end_line']}]"
+            output.append({"text": text, "source": meta["source"], "citation": citation})
+        span.record_results(output)
     return output
 
 

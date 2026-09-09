@@ -8,12 +8,14 @@ from mcp import types
 
 from src.config import Settings
 from src.searcher import search, list_sources
+from src.tracing import setup_tracing
 
 DOCS_PATH = Path(os.environ.get("KB_DOCS_PATH", "./docs"))
 DB_PATH = Path(os.environ.get("KB_DB_PATH", str(Path.home() / ".mcp-kb" / "chroma")))
 
 settings = Settings(docs_path=DOCS_PATH, db_path=DB_PATH)
 server = Server("mcp-knowledge-base")
+setup_tracing()
 
 
 @server.list_tools()

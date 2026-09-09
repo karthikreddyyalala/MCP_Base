@@ -109,6 +109,25 @@ The citation tells you exactly where in the file that answer came from. You can 
 
 ---
 
+## Observability with Arize Phoenix
+
+When tracing is enabled, every `search_docs` call is recorded as a retrieval span in [Arize Phoenix](https://phoenix.arize.com/) — the open-source LLM observability platform used in production at teams like Replit and Harvey. You can see exactly which chunks were retrieved for each query, spot retrieval failures, and diagnose why a bad answer was returned.
+
+```bash
+# Install the tracing extra
+pip install -e ".[tracing]"
+
+# Terminal 1 — start the Phoenix UI (opens http://localhost:6006)
+python3 -m phoenix.server.main serve
+
+# Terminal 2 — run the MCP server with tracing on
+PHOENIX_ENABLED=1 PYTHONPATH=. python3 src/server.py
+```
+
+Every query from Claude Desktop now shows up as a span in the Phoenix trace view with the query text, retrieved chunk sources, and citation metadata.
+
+---
+
 ## Technical decisions worth knowing about
 
 **Why ChromaDB over Pinecone?** The README promise is "deploy in 5 minutes." Requiring a Pinecone signup breaks that. ChromaDB is a single pip install, stores vectors on disk, and needs no account. The right tool for local-first software.
@@ -118,6 +137,8 @@ The citation tells you exactly where in the file that answer came from. You can 
 **Why line-range citations?** A RAG system that tells you something without telling you where it came from is a liability. Line numbers mean you can open the source file, verify the answer, and notice when documentation is out of date.
 
 **Why 400-token chunks with 50-token overlap?** Long enough to capture full thoughts, short enough to retrieve precisely. The overlap prevents context from being cut at chunk boundaries.
+
+**Why Arize Phoenix over RAGAS?** This server is a retriever — Claude handles generation downstream. RAGAS's headline metrics (`faithfulness`, `answer_relevancy`) score generation quality, which is a component this project doesn't control. Its LLM-judged scoring also requires an API key that would break the offline guarantee. Phoenix gives span-level retrieval observability — the right instrument for the right layer — and runs fully locally with no account required.
 
 ---
 
