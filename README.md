@@ -177,19 +177,48 @@ pytest tests/ -v
 
 ## Retrieval Evaluation
 
+### MS MARCO Benchmark (industry standard)
+
 ```bash
-# Re-index then measure Recall@5 and MRR
-PYTHONPATH=. python3 eval.py --docs ./example-docs --rebuild
+pip install -e ".[benchmark]"
+PYTHONPATH=. python3 scripts/eval_msmarco.py
 ```
 
-Output:
+Streams the 8.8M-passage MS MARCO corpus, reservoir-samples 1.1M passages (guaranteeing all qrel-relevant passages are included), indexes with `all-MiniLM-L6-v2`, then evaluates MRR@10 against the 6,980 official dev queries.
+
+```
+──────────────────────────────────────────────
+  Benchmark   MS MARCO Passage Ranking (dev)
+  Corpus      1,100,000 passages
+  Queries     6,980
+  Metric      MRR@10
+──────────────────────────────────────────────
+  Score       0.XXX          ← run to generate
+  BM25 base   0.167
+──────────────────────────────────────────────
+```
+
+First run takes ~90 minutes (sampling + indexing). Subsequent runs use the cached index (~20 min eval only). Index stored at `~/.mcp-kb/msmarco`.
+
+### Quick smoke test
+
+```bash
+PYTHONPATH=. python3 scripts/eval_msmarco.py --smoke
+```
+
+Streams full corpus (~3 min) but indexes only 10K passages and evaluates 50 queries. Verifies the pipeline end-to-end.
+
+### Example doc smoke test
+
+```bash
+PYTHONPATH=. python3 eval.py --docs ./example-docs
+```
+
 ```
 Metric             Value
 -------------------------
 Recall@5           1.000  (20/20)
 MRR                0.925
-
-Gold set: 20 questions across 3 docs
 ```
 
-Evaluated against 20 gold questions across the 3 example docs. Metrics: **Recall@5** (did the right document appear in top-5 results?) and **MRR** (Mean Reciprocal Rank — how high did it rank?). Score improved after switching to the header-aware chunker, which prefixes each chunk with its section heading to preserve context.
+20 gold questions across the 3 bundled example docs. Useful for verifying chunking behavior after changes — not a meaningful benchmark (9 chunks total).
