@@ -1,0 +1,882 @@
+<title>MCP Knowledge Base</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Fira+Code:wght@400;500&display=swap">
+
+<style>
+/* ── TOKENS ─────────────────────────────────────── */
+:root {
+  --bg:    #07060a;
+  --bg2:   #0e0d12;
+  --surf:  #13121a;
+  --brdr:  #1f1e28;
+  --brdr2: #2e2c3b;
+  --txt:   #f0ece4;
+  --txt2:  #7a7490;
+  --txt3:  #3e3b4d;
+  --em:    #2fe08a;   /* emerald accent */
+  --em-d:  #0d7a44;  /* emerald dark */
+  --em-bg: #0b2117;  /* emerald bg tint */
+  --am:    #f0a832;  /* amber highlight */
+  --am-bg: #1e1608;
+  --fs-d:  'Cormorant Garamond', Georgia, serif;
+  --fs-b:  'DM Sans', system-ui, sans-serif;
+  --fs-m:  'Fira Code', 'Courier New', monospace;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body {
+  font-family: var(--fs-b);
+  background: var(--bg);
+  color: var(--txt);
+  overflow-x: hidden;
+}
+/* ── CANVAS ──────────────────────────────────────── */
+#stars {
+  position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.45;
+}
+/* ── NAV ─────────────────────────────────────────── */
+nav {
+  position:sticky; top:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.875rem 2.5rem;
+  background:rgba(7,6,10,.82); backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--brdr);
+}
+.nav-logo {
+  font-family:var(--fs-d); font-weight:600; font-size:1.1rem;
+  letter-spacing:.01em; color:var(--txt); text-decoration:none;
+  display:flex; align-items:center; gap:.6rem;
+}
+.nav-pip { width:7px; height:7px; border-radius:50%; background:var(--em); animation:pip 2s ease-in-out infinite; }
+@keyframes pip { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.65)} }
+.nav-links { display:flex; align-items:center; gap:2rem; }
+.nav-links a { font-size:.8rem; font-weight:500; color:var(--txt2); text-decoration:none; letter-spacing:.04em; text-transform:uppercase; transition:color .2s; }
+.nav-links a:hover { color:var(--txt); }
+.nav-gh {
+  font-family:var(--fs-m); font-size:.75rem; font-weight:500;
+  padding:.45rem 1rem; border:1px solid var(--brdr2); border-radius:4px;
+  background:var(--surf); color:var(--txt2); text-decoration:none;
+  display:flex; align-items:center; gap:.5rem;
+  transition:border-color .2s, color .2s;
+}
+.nav-gh:hover { border-color:var(--em); color:var(--em); }
+/* ── HERO ────────────────────────────────────────── */
+.hero {
+  position:relative; z-index:1;
+  display:grid; grid-template-columns:1.05fr .95fr; gap:0;
+  min-height:calc(100vh - 56px); align-items:center;
+  padding:0 0 0 2.5rem;
+  border-bottom:1px solid var(--brdr);
+}
+.hero-left { padding:5rem 3.5rem 5rem 0; border-right:1px solid var(--brdr); }
+.hero-kicker {
+  font-family:var(--fs-m); font-size:.7rem; font-weight:500; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--em); margin-bottom:2rem;
+  display:flex; align-items:center; gap:.75rem;
+}
+.hero-kicker::before { content:''; display:block; width:28px; height:1px; background:var(--em); }
+.hero-hl {
+  font-family:var(--fs-d); font-size:clamp(2.8rem,5.2vw,5rem);
+  font-weight:300; line-height:1.06; letter-spacing:-.02em;
+  text-wrap:balance; margin-bottom:1.75rem;
+  overflow:hidden;
+}
+.hero-hl em { font-style:italic; color:var(--em); }
+.word { display:inline-block; overflow:hidden; }
+.word-inner {
+  display:inline-block;
+  transform:translateY(105%);
+  animation:word-in .8s cubic-bezier(.16,1,.3,1) forwards;
+  animation-play-state:paused;
+}
+@keyframes word-in { to { transform:translateY(0); } }
+.hero-sub {
+  color:var(--txt2); font-size:.95rem; line-height:1.78; max-width:42ch; margin-bottom:2.5rem;
+  opacity:0; animation:fade-up .7s .6s ease forwards;
+}
+@keyframes fade-up { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+.hero-ctas {
+  display:flex; gap:.75rem; flex-wrap:wrap;
+  opacity:0; animation:fade-up .7s .75s ease forwards;
+}
+.btn-em {
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.65rem 1.4rem; border-radius:4px;
+  background:var(--em); color:#06120d; font-weight:600; font-size:.85rem;
+  text-decoration:none; transition:opacity .2s, transform .15s;
+  font-family:var(--fs-b);
+}
+.btn-em:hover { opacity:.85; transform:translateY(-1px); }
+.btn-ghost {
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.65rem 1.4rem; border-radius:4px;
+  border:1px solid var(--brdr2); color:var(--txt2); font-size:.85rem;
+  text-decoration:none; transition:border-color .2s, color .2s;
+  font-family:var(--fs-b);
+}
+.btn-ghost:hover { border-color:var(--txt2); color:var(--txt); }
+/* ── TERMINAL ────────────────────────────────────── */
+.hero-right {
+  height:100%; display:flex; align-items:center;
+  padding:4rem 2.5rem;
+  background:linear-gradient(135deg, rgba(47,224,138,.025) 0%, transparent 60%);
+}
+.terminal {
+  width:100%; background:var(--bg2); border:1px solid var(--brdr2);
+  border-radius:8px; overflow:hidden;
+  box-shadow:0 0 0 1px rgba(255,255,255,.03), 0 24px 64px rgba(0,0,0,.5);
+  animation:term-in .9s .3s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes term-in { from{opacity:0;transform:translateY(24px) scale(.98)} }
+.term-bar {
+  padding:.7rem 1rem; background:#0e0d16;
+  display:flex; align-items:center; gap:.5rem;
+  border-bottom:1px solid var(--brdr);
+}
+.tdot { width:9px; height:9px; border-radius:50%; }
+.tr{background:#ff5b57;} .ty{background:#ffbd2e;} .tg{background:#28c840;}
+.term-title { font-family:var(--fs-m); font-size:.68rem; color:var(--txt3); margin:0 auto; padding-right:38px; letter-spacing:.04em; }
+.term-body {
+  padding:1.25rem 1.4rem; font-family:var(--fs-m); font-size:.78rem;
+  line-height:1.85; min-height:300px; overflow-y:auto;
+}
+.tp { color:var(--em); } .tc { color:var(--txt); } .to { color:var(--txt2); }
+.tg { color:var(--em); font-weight:500; }
+.tam { color:var(--am); }
+.tcur { display:inline-block; width:5px; height:.85em; background:var(--em); animation:blink 1s step-end infinite; vertical-align:middle; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+/* ── STATS ───────────────────────────────────────── */
+.stats {
+  position:relative; z-index:1;
+  display:grid; grid-template-columns:repeat(3,1fr);
+  border-bottom:1px solid var(--brdr);
+}
+.stat {
+  padding:4rem 2.5rem;
+  border-right:1px solid var(--brdr);
+  position:relative; overflow:hidden;
+}
+.stat:last-child { border-right:none; }
+/* bottom line reveal */
+.stat::before {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, var(--em) 0%, transparent 100%);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .9s cubic-bezier(.16,1,.3,1);
+}
+.stat.in-view::before { transform:scaleX(1); }
+/* ambient glow behind the number */
+.stat::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse 60% 55% at 30% 50%, rgba(47,224,138,.07) 0%, transparent 70%);
+  opacity:0; transition:opacity .6s ease;
+}
+.stat.in-view::after { opacity:1; }
+.stat-n {
+  font-family:var(--fs-d); font-size:clamp(3.5rem,6.5vw,6rem);
+  font-weight:700; letter-spacing:-.04em; line-height:1;
+  color:var(--txt); margin-bottom:.4rem;
+  display:flex; align-items:baseline; gap:.08em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-n sub { font-size:.45em; font-weight:400; color:var(--em); letter-spacing:-.01em; }
+/* flash animation when counter lands */
+@keyframes num-land {
+  0%   { color:var(--em); text-shadow:0 0 40px rgba(47,224,138,.8), 0 0 80px rgba(47,224,138,.4); transform:scale(1.06); }
+  100% { color:var(--txt); text-shadow:none; transform:scale(1); }
+}
+.stat-n.landed { animation:num-land .55s cubic-bezier(.16,1,.3,1) forwards; }
+.stat-l { font-family:var(--fs-m); font-size:.66rem; letter-spacing:.09em; text-transform:uppercase; color:var(--txt3); margin-top:1rem; line-height:1.5; }
+/* ── SECTION PRIMITIVES ──────────────────────────── */
+.section { max-width:1160px; margin:0 auto; padding:7rem 2.5rem; position:relative; z-index:1; }
+.section-sm { max-width:840px; margin:0 auto; padding:6rem 2.5rem; position:relative; z-index:1; }
+.eyebrow {
+  font-family:var(--fs-m); font-size:.68rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--em); margin-bottom:1.1rem;
+  display:flex; align-items:center; gap:.6rem;
+}
+.eyebrow::before { content:'—'; color:var(--em-d); }
+h2 {
+  font-family:var(--fs-d); font-size:clamp(2rem,4vw,3.25rem);
+  font-weight:300; letter-spacing:-.025em; line-height:1.12;
+  text-wrap:balance; margin-bottom:.75rem;
+}
+h2 em { font-style:italic; color:var(--am); }
+.lead { color:var(--txt2); font-size:.95rem; line-height:1.78; max-width:50ch; }
+.div-line { border:none; border-top:1px solid var(--brdr); margin:0; }
+/* ── REVEAL ANIMATION ────────────────────────────── */
+.reveal {
+  opacity:0; transform:translateY(28px);
+  transition:opacity .8s ease, transform .8s cubic-bezier(.16,1,.3,1);
+}
+.reveal.in-view { opacity:1; transform:none; }
+.reveal-d1 { transition-delay:.1s; }
+.reveal-d2 { transition-delay:.2s; }
+.reveal-d3 { transition-delay:.3s; }
+/* ── WHAT IS IT ──────────────────────────────────── */
+.what-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:1px; background:var(--brdr); border:1px solid var(--brdr);
+  border-radius:8px; overflow:hidden; margin-top:3rem;
+}
+.what-cell {
+  background:var(--bg); padding:2rem 2.25rem;
+  transition:background .25s;
+  position:relative; overflow:hidden;
+}
+.what-cell::after {
+  content:''; position:absolute; bottom:0; left:0; right:0;
+  height:2px; background:linear-gradient(90deg, var(--em) 0%, transparent 100%);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .5s cubic-bezier(.16,1,.3,1);
+}
+.what-cell:hover { background:var(--bg2); }
+.what-cell:hover::after { transform:scaleX(1); }
+.wc-tag { font-family:var(--fs-m); font-size:.63rem; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3); margin-bottom:.7rem; }
+.wc-title { font-family:var(--fs-d); font-size:1.2rem; font-weight:600; letter-spacing:-.01em; margin-bottom:.5rem; }
+.wc-body { font-size:.87rem; color:var(--txt2); line-height:1.72; }
+/* ── HOW IT WORKS ────────────────────────────────── */
+.how-steps { margin-top:3.5rem; }
+.step {
+  display:grid; grid-template-columns:auto 1fr;
+  gap:0 2.25rem; margin-bottom:0;
+  position:relative;
+}
+.step-lhs { display:flex; flex-direction:column; align-items:center; }
+.step-num {
+  width:38px; height:38px; border-radius:50%;
+  border:1px solid var(--brdr2); background:var(--surf);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fs-m); font-size:.72rem; color:var(--txt2);
+  flex-shrink:0; z-index:1; position:relative;
+  transition:border-color .3s, color .3s, background .3s;
+}
+.step:hover .step-num { border-color:var(--em); color:var(--em); background:var(--em-bg); }
+.step-line { flex:1; width:1px; background:linear-gradient(to bottom, var(--brdr2) 0%, transparent 100%); min-height:3rem; margin:6px 0; }
+.step:last-child .step-line { display:none; }
+.step-rhs { padding:4px 0 4rem; }
+.step-title { font-family:var(--fs-d); font-size:1.25rem; font-weight:600; letter-spacing:-.01em; margin-bottom:.4rem; }
+.step-desc { font-size:.875rem; color:var(--txt2); line-height:1.72; max-width:54ch; }
+.step-badge {
+  display:inline-flex; margin-top:.6rem;
+  font-family:var(--fs-m); font-size:.68rem; color:var(--em);
+  background:var(--em-bg); border:1px solid rgba(47,224,138,.18);
+  padding:2px 10px; border-radius:3px; letter-spacing:.02em;
+}
+/* ── BIG NUMBER ──────────────────────────────────── */
+.big-section {
+  position:relative; z-index:1;
+  border-top:1px solid var(--brdr); border-bottom:1px solid var(--brdr);
+  overflow:hidden;
+}
+.big-inner {
+  max-width:1160px; margin:0 auto; padding:6rem 2.5rem;
+  display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center;
+}
+.big-num {
+  font-family:var(--fs-d); font-size:clamp(5rem,13vw,11rem);
+  font-weight:700; letter-spacing:-.05em; line-height:.9;
+  color:var(--em); tabular-nums:normal;
+  text-shadow:0 0 80px rgba(47,224,138,.18);
+}
+.big-label { font-family:var(--fs-m); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3); margin-top:.75rem; }
+.big-context h3 { font-family:var(--fs-d); font-size:2.2rem; font-weight:300; letter-spacing:-.025em; line-height:1.18; margin-bottom:1rem; }
+.big-context p { color:var(--txt2); font-size:.9rem; line-height:1.76; }
+.big-bg {
+  position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse 55% 80% at 20% 50%, rgba(47,224,138,.045) 0%, transparent 65%);
+}
+/* ── BENCHMARK ───────────────────────────────────── */
+.bench { display:grid; grid-template-columns:.9fr 1.1fr; gap:5rem; align-items:center; }
+.bench-score {
+  font-family:var(--fs-d); font-size:clamp(4.5rem,8vw,7rem);
+  font-weight:700; line-height:.9; letter-spacing:-.04em; color:var(--txt);
+  position:relative;
+}
+.bench-score-num { color:var(--em); }
+.bench-score-label { font-family:var(--fs-m); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3); margin-top:.5rem; }
+.bench-meta {
+  display:grid; grid-template-columns:1fr 1fr; gap:.75rem 2rem; margin-top:1.75rem;
+}
+.bench-kv { }
+.bk-k { font-family:var(--fs-m); font-size:.65rem; letter-spacing:.08em; text-transform:uppercase; color:var(--txt3); margin-bottom:.25rem; }
+.bk-v { font-size:.85rem; color:var(--txt2); }
+.bars { display:flex; flex-direction:column; gap:1.5rem; }
+.bar-item { }
+.bar-row { display:flex; justify-content:space-between; margin-bottom:.4rem; font-size:.8rem; }
+.bar-name { color:var(--txt2); }
+.bar-val { font-family:var(--fs-m); color:var(--txt); font-weight:500; font-size:.75rem; }
+.bar-track { height:5px; background:var(--surf); border-radius:100px; overflow:hidden; border:1px solid var(--brdr); }
+.bar-fill { height:100%; border-radius:100px; width:0; transition:width 1.4s cubic-bezier(.16,1,.3,1); }
+.fill-em { background:linear-gradient(90deg, var(--em-d), var(--em)); }
+.fill-dim { background:var(--txt3); }
+/* ── WHO ─────────────────────────────────────────── */
+.who-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:2.5rem; }
+.who-card {
+  padding:1.6rem; border:1px solid var(--brdr); border-radius:6px; background:var(--bg2);
+  transition:border-color .25s, transform .2s, background .25s;
+}
+.who-card:hover { border-color:var(--brdr2); background:var(--surf); transform:translateY(-2px); }
+.wh-tag { font-family:var(--fs-m); font-size:.63rem; letter-spacing:.1em; text-transform:uppercase; color:var(--txt3); margin-bottom:.6rem; }
+.wh-title { font-family:var(--fs-d); font-size:1.15rem; font-weight:600; margin-bottom:.4rem; }
+.wh-body { font-size:.85rem; color:var(--txt2); line-height:1.68; }
+/* ── ANALOGY ─────────────────────────────────────── */
+.analogy {
+  border-left:2px solid var(--am); padding:1.25rem 1.75rem;
+  background:var(--am-bg); border-radius:0 6px 6px 0; margin:2.5rem 0;
+}
+.an-tag { font-family:var(--fs-m); font-size:.65rem; letter-spacing:.1em; text-transform:uppercase; color:var(--am); margin-bottom:.4rem; }
+.an-text { font-size:.88rem; color:var(--txt2); line-height:1.72; }
+.an-text strong { color:var(--txt); }
+/* ── CODE ────────────────────────────────────────── */
+.code-card { background:var(--bg2); border:1px solid var(--brdr); border-radius:8px; overflow:hidden; margin-top:2.5rem; }
+.code-hdr { padding:.65rem 1.1rem; background:var(--surf); border-bottom:1px solid var(--brdr); font-family:var(--fs-m); font-size:.65rem; color:var(--txt3); display:flex; align-items:center; gap:.4rem; }
+.code-hdr-dot { width:6px; height:6px; border-radius:50%; background:var(--em); }
+.code-body { padding:1.4rem; overflow-x:auto; }
+.code-body pre { font-family:var(--fs-m); font-size:.78rem; color:var(--txt); line-height:1.85; }
+.ck { color:#7ab4e8; } .cs { color:#a8d77a; } .cc { color:var(--txt3); }
+.ca { color:var(--em); } .cam { color:var(--am); }
+/* ── CHIPS ───────────────────────────────────────── */
+.chips { display:flex; flex-wrap:wrap; gap:.65rem; margin-top:2rem; }
+.chip {
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.45rem .9rem; border-radius:100px;
+  border:1px solid var(--brdr2); font-size:.8rem; color:var(--txt2);
+  background:var(--surf);
+}
+.chip-dot { width:6px; height:6px; border-radius:50%; background:var(--em); }
+/* ── FOOTER ──────────────────────────────────────── */
+footer {
+  border-top:1px solid var(--brdr); position:relative; z-index:1;
+  max-width:1160px; margin:0 auto; padding:2.25rem 2.5rem;
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;
+}
+.foot-l { font-size:.8rem; color:var(--txt3); }
+.foot-l span { color:var(--txt2); }
+.foot-r { display:flex; gap:1.5rem; }
+.foot-r a { font-size:.8rem; color:var(--txt3); text-decoration:none; transition:color .2s; }
+.foot-r a:hover { color:var(--txt2); }
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media(max-width:900px) {
+  .hero { grid-template-columns:1fr; padding:0 1.25rem; }
+  .hero-left { padding:3.5rem 0 2rem; border-right:none; border-bottom:1px solid var(--brdr); }
+  .hero-right { padding:2rem 0 3rem; }
+  .stats { grid-template-columns:1fr; }
+  .stat { border-right:none; border-bottom:1px solid var(--brdr); }
+  .stat:last-child { border-bottom:none; }
+  .what-grid,.who-grid,.bench { grid-template-columns:1fr; }
+  .big-inner { grid-template-columns:1fr; gap:2rem; }
+  .section,.section-sm { padding:4.5rem 1.25rem; }
+  footer { flex-direction:column; text-align:center; }
+  nav { padding:.875rem 1.25rem; }
+  .nav-links { display:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
+/* ── MARQUEE ─────────────────────────────────────── */
+.marquee-wrap { border-top:1px solid var(--brdr); border-bottom:1px solid var(--brdr); overflow:hidden; background:var(--bg2); position:relative; z-index:1; }
+.marquee-track {
+  display:flex; gap:3rem; align-items:center; padding:.8rem 0;
+  white-space:nowrap;
+  animation:marquee 28s linear infinite;
+}
+@keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.marq-item { font-family:var(--fs-m); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--txt3); display:flex; align-items:center; gap:.6rem; }
+.marq-sep { color:var(--em); }
+/* ── LINE GRID BG ────────────────────────────────── */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(var(--brdr) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brdr) 1px, transparent 1px);
+  background-size:72px 72px; opacity:.18;
+}
+</style>
+
+<!-- STARS CANVAS -->
+<canvas id="stars"></canvas>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="nav-pip"></span>
+    MCP Knowledge Base
+  </a>
+  <div class="nav-links">
+    <a href="#what">Explained</a>
+    <a href="#how">Architecture</a>
+    <a href="#benchmark">Benchmark</a>
+    <a href="#start">Quickstart</a>
+    <a href="https://github.com/karthikreddyyalala/MCP_Base" class="nav-gh">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero" id="top">
+  <div class="hero-left">
+    <div class="hero-kicker">MCP Server · stdio · fully offline</div>
+    <h1 class="hero-hl" id="hero-hl">
+      <span class="word"><span class="word-inner">Your&nbsp;docs.</span></span><br>
+      <span class="word"><span class="word-inner" style="animation-delay:.09s"><em>Claude's</em></span></span><br>
+      <span class="word"><span class="word-inner" style="animation-delay:.18s">memory.</span></span>
+    </h1>
+    <p class="hero-sub">Ask questions in plain English. Get cited answers from your own markdown files — deployment guides, runbooks, internal APIs — without uploading anything to the cloud.</p>
+    <div class="hero-ctas">
+      <a href="#start" class="btn-em">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+        Get started
+      </a>
+      <a href="#what" class="btn-ghost">What is this?</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="terminal">
+      <div class="term-bar">
+        <span class="tdot tr"></span><span class="tdot ty"></span><span class="tdot tg"></span>
+        <span class="term-title">claude — knowledge-base</span>
+      </div>
+      <div class="term-body" id="tb"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="mq"></div>
+</div>
+
+<!-- STATS -->
+<div class="stats" id="stats">
+  <div class="stat reveal">
+    <div class="stat-n" id="sn0"><span class="count-target" data-target="0.585" data-dec="3" data-dur="1400">0.000</span><sub>mrr@10</sub></div>
+    <div class="stat-l">retrieval accuracy<br>ms marco dev set</div>
+  </div>
+  <div class="stat reveal reveal-d1">
+    <div class="stat-n" id="sn1"><span class="count-target" data-target="3.5" data-dec="1" data-dur="1200">0.0</span><sub>×</sub></div>
+    <div class="stat-l">above keyword<br>search baseline</div>
+  </div>
+  <div class="stat reveal reveal-d2">
+    <div class="stat-n" id="sn2"><span id="big-count">0</span><sub>M</sub></div>
+    <div class="stat-l">passages benchmarked<br>6,980 queries evaluated</div>
+  </div>
+</div>
+
+<hr class="div-line">
+
+<!-- WHAT IS IT -->
+<section class="section" id="what">
+  <div class="eyebrow">Plain-English explanation</div>
+  <h2>What does this<br><em>actually</em> do?</h2>
+
+  <div class="analogy">
+    <div class="an-tag">The filing cabinet analogy</div>
+    <div class="an-text">You hired a new employee and gave them a filing cabinet full of company documents. This tool is that cabinet, <strong>wired directly into Claude.</strong> Ask a question — it searches your actual files first, then gives you an answer with an exact citation. Like a librarian who says "page 47, third paragraph."</div>
+  </div>
+
+  <div class="what-grid">
+    <div class="what-cell reveal">
+      <div class="wc-tag">Term</div>
+      <div class="wc-title">MCP — Model Context Protocol</div>
+      <div class="wc-body">Anthropic's open standard that lets Claude Desktop talk to external tools. Like a USB port — you plug in a tool and Claude can use it. This project is one such tool, called an "MCP server."</div>
+    </div>
+    <div class="what-cell reveal reveal-d1">
+      <div class="wc-tag">Term</div>
+      <div class="wc-title">Semantic Search</div>
+      <div class="wc-body">Old search finds exact words. Semantic search understands meaning. "How do I fix a broken deploy?" finds "Rollback Procedure" — even though "fix" and "broken" don't appear in the title.</div>
+    </div>
+    <div class="what-cell reveal reveal-d2">
+      <div class="wc-tag">Term</div>
+      <div class="wc-title">Vector Embedding</div>
+      <div class="wc-body">Each document chunk becomes 384 numbers representing its meaning. Your query becomes numbers too. We find the chunks whose numbers are closest. That's semantic search under the hood.</div>
+    </div>
+    <div class="what-cell reveal reveal-d3">
+      <div class="wc-tag">Term</div>
+      <div class="wc-title">Citation [source: file.md:L18]</div>
+      <div class="wc-body">Every answer includes the exact file and line number. Open it, verify it, notice when docs are out of date. A system that gives answers without sources can't be trusted professionally.</div>
+    </div>
+  </div>
+</section>
+
+<hr class="div-line">
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="eyebrow">Architecture</div>
+  <h2>Five components.<br>One pipeline.</h2>
+  <p class="lead">Here's exactly what each piece does, in plain terms.</p>
+
+  <div class="how-steps">
+    <div class="step reveal">
+      <div class="step-lhs"><div class="step-num">01</div><div class="step-line"></div></div>
+      <div class="step-rhs">
+        <div class="step-title">Your markdown files</div>
+        <div class="step-desc">Put all your documentation in a folder — deployment guides, API references, onboarding docs. They're just regular .md text files. This is your raw knowledge.</div>
+        <span class="step-badge">./your-docs/*.md</span>
+      </div>
+    </div>
+    <div class="step reveal reveal-d1">
+      <div class="step-lhs"><div class="step-num">02</div><div class="step-line"></div></div>
+      <div class="step-rhs">
+        <div class="step-title">The Indexer — index.py</div>
+        <div class="step-desc">Run once. Reads every file, cuts it into 400-word chunks with 50-word overlaps, then runs each chunk through <strong style="color:var(--txt)">all-MiniLM-L6-v2</strong> — an AI model that converts text into 384 numbers representing its meaning.</div>
+        <span class="step-badge">python3 index.py --docs ./your-docs</span>
+      </div>
+    </div>
+    <div class="step reveal reveal-d2">
+      <div class="step-lhs"><div class="step-num">03</div><div class="step-line"></div></div>
+      <div class="step-rhs">
+        <div class="step-title">ChromaDB — the vector store</div>
+        <div class="step-desc">All those number-lists get saved to a local database on your disk. ChromaDB is a filing cabinet that's very fast at finding "which documents have numbers closest to this search?" Nothing goes online.</div>
+        <span class="step-badge">~/.mcp-kb/chroma/ — local disk only</span>
+      </div>
+    </div>
+    <div class="step reveal reveal-d3">
+      <div class="step-lhs"><div class="step-num">04</div><div class="step-line"></div></div>
+      <div class="step-rhs">
+        <div class="step-title">The MCP Server — server.py</div>
+        <div class="step-desc">Runs in the background, listens for Claude Desktop. Exposes two tools: <span style="color:var(--em);font-family:var(--fs-m);font-size:.82em">search_docs</span> (semantic search) and <span style="color:var(--em);font-family:var(--fs-m);font-size:.82em">list_docs</span> (show what exists). Speaks MCP protocol over stdio.</div>
+        <span class="step-badge">python3 src/server.py — stdio transport</span>
+      </div>
+    </div>
+    <div class="step reveal">
+      <div class="step-lhs"><div class="step-num">05</div></div>
+      <div class="step-rhs">
+        <div class="step-title">Claude Desktop uses the tools</div>
+        <div class="step-desc">You ask "how do I roll back a bad deploy?" Claude calls search_docs, gets back 5 relevant chunks with file names and line numbers, then writes you an answer using that real information.</div>
+        <span class="step-badge">[source: deployment-runbook.md:L18-L24]</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BIG NUMBER SECTION -->
+<div class="big-section" id="benchmark">
+  <div class="big-bg"></div>
+  <div class="big-inner">
+    <div>
+      <div class="big-num" id="big-mrr">0</div>
+      <div class="big-label">MRR@10 · MS MARCO · 1.1M passages · 6,980 queries</div>
+    </div>
+    <div class="big-context reveal">
+      <div class="eyebrow">Measured, not claimed</div>
+      <h3>3.5× better than<br>keyword search.</h3>
+      <p style="color:var(--txt2);font-size:.9rem;line-height:1.76;margin-top:.75rem">
+        MRR@10 (Mean Reciprocal Rank) measures: when you search, does the right answer appear in your top 10 results — and how high up? Score of 1.0 = always first.
+        <br><br>
+        BM25, the same tech as old-school keyword search, scores <strong style="color:var(--txt)">0.167</strong>. This project scores <strong style="color:var(--em)">0.585</strong> — on 1.1 million real passages, 6,980 real queries from the MS MARCO benchmark.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- BENCHMARK BARS -->
+<section class="section">
+  <div class="bench">
+    <div class="reveal">
+      <div class="bench-score">
+        <div class="bench-score-num">0.585</div>
+        <div class="bench-score-label">MRR@10</div>
+      </div>
+      <div class="bench-meta">
+        <div class="bench-kv"><div class="bk-k">Dataset</div><div class="bk-v">MS MARCO Passage Ranking (dev)</div></div>
+        <div class="bench-kv"><div class="bk-k">Corpus</div><div class="bk-v">1,100,000 passages</div></div>
+        <div class="bench-kv"><div class="bk-k">Queries</div><div class="bk-v">6,980 official dev queries</div></div>
+        <div class="bench-kv"><div class="bk-k">Index</div><div class="bk-v">FAISS IndexFlatIP (cosine)</div></div>
+      </div>
+    </div>
+    <div class="bars reveal reveal-d1">
+      <div class="bar-item">
+        <div class="bar-row">
+          <span class="bar-name">all-MiniLM-L6-v2 (this project)</span>
+          <span class="bar-val">0.585</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill fill-em" id="b1"></div></div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-row">
+          <span class="bar-name">BM25 — keyword search baseline</span>
+          <span class="bar-val">0.167</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill fill-dim" id="b2"></div></div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-row">
+          <span class="bar-name">Score of 0 — never in top 10</span>
+          <span class="bar-val">0.000</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill fill-dim" style="width:1%;opacity:.3"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="div-line">
+
+<!-- WHO -->
+<section class="section" id="who">
+  <div class="eyebrow">Audience</div>
+  <h2>Built for teams whose<br>docs <em>can't leave the building.</em></h2>
+
+  <div class="who-grid">
+    <div class="who-card reveal">
+      <div class="wh-tag">Engineering teams</div>
+      <div class="wh-title">You have private runbooks</div>
+      <div class="wh-body">Deployment guides, incident playbooks, on-call procedures. Things nobody can find when the site is down at 2am. Index once, ask Claude anytime.</div>
+    </div>
+    <div class="who-card reveal reveal-d1">
+      <div class="wh-tag">Security-conscious orgs</div>
+      <div class="wh-title">You can't upload to GPT</div>
+      <div class="wh-body">Legal docs, internal specs, unreleased features. Compliance teams can approve this — nothing leaves the machine. No vendor agreement to negotiate.</div>
+    </div>
+    <div class="who-card reveal reveal-d2">
+      <div class="wh-tag">Solo developers</div>
+      <div class="wh-title">You want AI over your own notes</div>
+      <div class="wh-body">Engineering journals, personal knowledge bases, project notes. Make Claude aware of everything you've written without pasting it into every conversation.</div>
+    </div>
+    <div class="who-card reveal reveal-d3">
+      <div class="wh-tag">MCP builders</div>
+      <div class="wh-title">You're learning the protocol</div>
+      <div class="wh-body">A complete working MCP server: tool registration, stdio transport, Arize Phoenix observability. 200 lines. Read the source. Build on top of it.</div>
+    </div>
+  </div>
+
+  <div class="chips">
+    <div class="chip"><span class="chip-dot"></span>No cloud account needed</div>
+    <div class="chip"><span class="chip-dot"></span>Docs stay on your machine</div>
+    <div class="chip"><span class="chip-dot"></span>Every answer cited</div>
+    <div class="chip"><span class="chip-dot"></span>Works offline after setup</div>
+    <div class="chip"><span class="chip-dot"></span>5-minute install</div>
+    <div class="chip"><span class="chip-dot"></span>Zero API keys</div>
+  </div>
+</section>
+
+<hr class="div-line">
+
+<!-- QUICKSTART -->
+<section class="section-sm" id="start">
+  <div class="eyebrow">Quickstart</div>
+  <h2>Running in five<br>minutes.</h2>
+  <p class="lead">Three commands to get Claude Desktop searching your docs.</p>
+
+  <div class="code-card reveal">
+    <div class="code-hdr"><span class="code-hdr-dot"></span>Terminal</div>
+    <div class="code-body"><pre><span class="cc"># 1. Clone and install</span>
+<span class="ca">git clone</span> https://github.com/karthikreddyyalala/MCP_Base.git
+<span class="ca">cd</span> MCP_Base &amp;&amp; <span class="ca">pip install</span> -e .
+
+<span class="cc"># 2. Index your docs (once)</span>
+<span class="ca">python3 index.py</span> --docs ./your-docs
+
+<span class="cc"># 3. Add to Claude Desktop</span>
+<span class="cc"># ~/Library/Application Support/Claude/claude_desktop_config.json</span>
+<span class="ck">{</span>
+  <span class="cam">"mcpServers"</span>: {
+    <span class="cam">"knowledge-base"</span>: {
+      <span class="cam">"command"</span>: <span class="cs">"python3"</span>,
+      <span class="cam">"args"</span>: [<span class="cs">"/absolute/path/to/MCP_Base/src/server.py"</span>]
+    }
+  }
+<span class="ck">}</span>
+
+<span class="cc"># Restart Claude Desktop.</span>
+<span class="cc"># Hammer icon appears → you're live.</span>
+<span class="cc"># Ask: "What docs do you have access to?"</span></pre></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-l">Built by <span>Karthik Reddy Yalala</span> · ASU Computer Science · May 2027</div>
+  <div class="foot-r">
+    <a href="https://github.com/karthikreddyyalala/MCP_Base">GitHub</a>
+    <a href="#what">Explained</a>
+    <a href="#benchmark">Benchmark</a>
+  </div>
+</footer>
+
+<script>
+/* ── STARS CANVAS ───────────────────────── */
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+let W, H, pts;
+function initStars() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  pts = Array.from({length:80}, () => ({
+    x: Math.random()*W, y: Math.random()*H,
+    r: Math.random()*1.2+.2,
+    vx: (Math.random()-.5)*.12, vy: (Math.random()-.5)*.12,
+    o: Math.random()*.6+.2
+  }));
+}
+function drawStars() {
+  ctx.clearRect(0,0,W,H);
+  pts.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+    if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(47,224,138,${p.o})`; ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+initStars(); drawStars();
+window.addEventListener('resize', initStars);
+
+/* ── MARQUEE ────────────────────────────── */
+const items = ['all-MiniLM-L6-v2','ChromaDB','FAISS IndexFlatIP','stdio transport','MRR@10 · 0.585','sentence-transformers','Arize Phoenix','cosine similarity','6,980 queries','400-token chunks'];
+const mq = document.getElementById('mq');
+const row = items.map(t => `<span class="marq-item">${t}<span class="marq-sep">·</span></span>`).join('');
+mq.innerHTML = row + row; // duplicate for seamless loop
+
+/* ── HERO WORD ANIMATION ─────────────────── */
+document.querySelectorAll('.word-inner').forEach(el => {
+  el.style.animationPlayState = 'running';
+});
+
+/* ── TERMINAL ANIMATION ──────────────────── */
+const lines = [
+  {t:'p', v:'search_docs("how do I roll back a bad deploy?")'},
+  {t:'b'},
+  {t:'g', v:'[source: deployment-runbook.md:L8–L14]'},
+  {t:'o', v:'If error rate spikes, run rollback:'},
+  {t:'o', v:'  ./scripts/rollback.sh <previous-sha>'},
+  {t:'o', v:'Takes ~3 min. Notify #incidents in Slack.'},
+  {t:'b'},
+  {t:'p', v:'list_docs()'},
+  {t:'b'},
+  {t:'o', v:'api-reference.md'},
+  {t:'o', v:'deployment-runbook.md'},
+  {t:'o', v:'onboarding.md'},
+  {t:'b'},
+  {t:'p', v:'search_docs("what auth does the API use?")'},
+  {t:'b'},
+  {t:'g', v:'[source: api-reference.md:L42–L51]'},
+  {t:'o', v:'Bearer token in Authorization header.'},
+  {t:'o', v:'Tokens expire after 24h; rotate via /auth/refresh.'},
+];
+const tb = document.getElementById('tb');
+let li=0, ci=0;
+function addLine(line) {
+  const d=document.createElement('div');
+  if(line.t==='p') d.innerHTML=`<span class="tp">› </span><span class="tc" id="tc"></span><span class="tcur"></span>`;
+  else if(line.t==='b') d.innerHTML='&nbsp;';
+  else if(line.t==='g') d.innerHTML=`<span class="tam">${line.v}</span>`;
+  else d.innerHTML=`<span class="to">${line.v}</span>`;
+  tb.appendChild(d); return d;
+}
+function run() {
+  if(li>=lines.length){setTimeout(reset,3200);return;}
+  const line=lines[li];
+  if(line.t==='p'){
+    if(ci===0)addLine(line);
+    const tc=document.getElementById('tc');
+    if(tc&&ci<=line.v.length){
+      tc.textContent=line.v.slice(0,ci++);
+      setTimeout(run, ci<=line.v.length ? 22 : 480);
+    } else { tb.querySelector('.tcur')?.remove(); li++;ci=0; setTimeout(run,240); }
+  } else { addLine(line); li++; setTimeout(run,line.t==='b'?55:95); }
+  tb.scrollTop=tb.scrollHeight;
+}
+function reset(){ tb.innerHTML=''; li=0; ci=0; run(); }
+run();
+
+/* ── INTERSECTION OBSERVER ───────────────── */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return;
+    e.target.classList.add('in-view');
+    io.unobserve(e.target);
+  });
+}, {threshold:.15});
+document.querySelectorAll('.reveal, .stat').forEach(el => io.observe(el));
+
+/* ── NUMBER COUNTER (base) ───────────────── */
+function animCount(el, target, dec, dur, onDone) {
+  const start=performance.now();
+  const fmt=n=>n.toFixed(dec);
+  function step(now){
+    const t=Math.min((now-start)/dur,1);
+    const ease=1-Math.pow(1-t,4);
+    el.textContent=fmt(ease*target);
+    if(t<1){ requestAnimationFrame(step); }
+    else { el.textContent=fmt(target); onDone&&onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── STAT COUNTERS with land flash ──────── */
+const cio = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return;
+    const el=e.target;
+    const target=parseFloat(el.dataset.target);
+    const dec=parseInt(el.dataset.dec);
+    const dur=parseInt(el.dataset.dur)||1500;
+    const container=el.closest('.stat-n');
+    animCount(el, target, dec, dur, ()=>{
+      if(container){ container.classList.add('landed'); setTimeout(()=>container.classList.remove('landed'),600); }
+    });
+    cio.unobserve(el);
+  });
+}, {threshold:.5});
+document.querySelectorAll('.count-target').forEach(el => cio.observe(el));
+
+/* ── 1.1M DRAMATIC COUNTER ───────────────── */
+const bigCount = document.getElementById('big-count');
+const sn2 = document.getElementById('sn2');
+function animMillions(el, container) {
+  // counts 0 → 1,100,000 displayed as 0.0 → 1.1M with turbo speed
+  const dur = 2200;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min((now - start) / dur, 1);
+    // custom easing: fast start, slow finish — like a slot machine
+    const ease = t < 0.7
+      ? (t / 0.7) * 0.92                         // quick rush to 92%
+      : 0.92 + (1 - 0.92) * ((t - 0.7) / 0.3);  // slow crawl to 100%
+    const val = ease * 1.1;
+    el.textContent = val.toFixed(1);
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      el.textContent = '1.1';
+      // slam landing effect
+      container.classList.add('landed');
+      setTimeout(() => container.classList.remove('landed'), 700);
+    }
+  }
+  requestAnimationFrame(step);
+}
+const mio = new IntersectionObserver(entries => {
+  if (!entries[0].isIntersecting) return;
+  animMillions(bigCount, sn2);
+  mio.unobserve(entries[0].target);
+}, {threshold: .5});
+mio.observe(sn2);
+
+/* ── BIG MRR COUNTER ─────────────────────── */
+const bigMrr = document.getElementById('big-mrr');
+const bioMrr = new IntersectionObserver(entries => {
+  if(!entries[0].isIntersecting) return;
+  animCount(bigMrr, 0.585, 3, 1800);
+  bioMrr.unobserve(bigMrr);
+}, {threshold:.5});
+bioMrr.observe(bigMrr);
+
+/* ── BENCHMARK BARS ──────────────────────── */
+const barsIo = new IntersectionObserver(entries => {
+  if(!entries[0].isIntersecting) return;
+  setTimeout(() => {
+    document.getElementById('b1').style.width='100%';
+    document.getElementById('b2').style.width='28.5%';
+  }, 300);
+  barsIo.unobserve(entries[0].target);
+}, {threshold:.4});
+barsIo.observe(document.querySelector('.bars'));
+</script>
