@@ -1,86 +1,83 @@
 """
 MS MARCO Passage Ranking — MRR@10 benchmark.
 
-Streams the 8.8M passage corpus once to reservoir-sample 1.1M passages that
-ALWAYS include all qrel-relevant passages (so MRR@10 is accurate, not deflated
-by a naive head-of-corpus slice). Indexes into a dedicated ChromaDB collection.
-Subsequent runs reuse the cached index.
+Uses ir_datasets to stream the 8.8M passage corpus, reservoir-samples 1.1M
+passages (always including all qrel-relevant passages), embeds with
+all-MiniLM-L6-v2, and indexes with FAISS for fast ANN search.
 
 Usage:
-    pip install datasets tqdm
-    PYTHONPATH=. python3 scripts/eval_msmarco.py            # full 1.1M run
-    PYTHONPATH=. python3 scripts/eval_msmarco.py --smoke    # 10K passages, 50 queries
+    pip install ir_datasets faiss-cpu
+    PYTHONPATH=. python3 scripts/eval_msmarco.py            # full 1.1M run (~90 min)
+    PYTHONPATH=. python3 scripts/eval_msmarco.py --smoke    # quick end-to-end test
 """
 
 import argparse
+import json
 import random
 from collections import defaultdict
 from pathlib import Path
 
-import chromadb
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-COLLECTION = "msmarco_eval"
-MODEL = "all-MiniLM-L6-v2"
-INDEX_BATCH = 256
+MODEL_NAME = "all-MiniLM-L6-v2"
+DIM = 384
+EMBED_BATCH = 512
 TOP_K = 10
 BM25_BASELINE = 0.167
 
 
-# ── data loading ────────────────────────────────────────────────────────────
+def load_qrels_and_queries():
+    import urllib.request, csv, io
+    import ir_datasets
 
-def load_qrels() -> tuple[dict[str, set[str]], set[str]]:
-    """Returns ({qid: {relevant_passage_ids}}, set_of_all_relevant_pids)."""
-    from datasets import load_dataset
-
-    print("Loading qrels (validation split)...")
-    rows = load_dataset("BeIR/msmarco-qrels", split="validation")
+    # qrels from HuggingFace (Microsoft's qrels.dev.small.tsv is 404)
+    print("Loading qrels...")
+    url = "https://huggingface.co/datasets/BeIR/msmarco-qrels/resolve/main/dev.tsv"
+    with urllib.request.urlopen(url) as r:
+        data = r.read().decode()
     qrels: dict[str, set[str]] = defaultdict(set)
     relevant_pids: set[str] = set()
-    for row in rows:
-        if int(row["score"]) > 0:
-            pid = str(row["corpus-id"])
-            qrels[str(row["query-id"])].add(pid)
+    for row in csv.reader(io.StringIO(data), delimiter="\t"):
+        if len(row) == 3:
+            qid, pid, score = row       # BeIR format: qid pid score
+        elif len(row) >= 4:
+            qid, _, pid, score = row[0], row[1], row[2], row[3]  # TREC format: qid iter pid rel
+        else:
+            continue
+        if not score.lstrip("-").isdigit():
+            continue
+        if int(score) > 0:
+            qrels[qid].add(pid)
             relevant_pids.add(pid)
     print(f"  {len(qrels):,} queries | {len(relevant_pids):,} unique relevant passages")
-    return dict(qrels), relevant_pids
+
+    # queries from ir_datasets (already cached in collectionandqueries.tar)
+    print("Loading queries...")
+    dataset = ir_datasets.load("msmarco-passage/dev/small")
+    queries = {q.query_id: q.text for q in dataset.queries_iter() if q.query_id in qrels}
+    print(f"  {len(queries):,} queries loaded")
+
+    return dict(qrels), relevant_pids, queries
 
 
-def reservoir_sample(
-    n_target: int, relevant_pids: set[str], smoke: bool
-) -> dict[str, str]:
-    """
-    Stream corpus once. Always keep relevant passages. Reservoir-sample the
-    rest until we reach n_target total. Returns {passage_id: text}.
-
-    ponytail: O(N) stream over 8.8M rows is the only correct approach here —
-    relevant passages are spread 0..8M so any head-slice misses almost all of them.
-    """
-    from datasets import load_dataset
+def reservoir_sample(n_target: int, relevant_pids: set[str], smoke: bool) -> dict[str, str]:
+    import ir_datasets
+    corpus = ir_datasets.load("msmarco-passage")
 
     n_fill = n_target - len(relevant_pids)
-    assert n_fill > 0, "n_target must exceed number of relevant passages"
+    kept: dict[str, str] = {}
+    reservoir: list[tuple[str, str]] = []
+    n_seen_fill = 0
 
-    corpus = load_dataset(
-        "BeIR/msmarco", "corpus", split="corpus", streaming=True
-    )
-
-    kept: dict[str, str] = {}       # pid → text (relevant passages, always kept)
-    reservoir: list[tuple[str, str]] = []  # random fill passages
-    n_seen_fill = 0                 # non-relevant passages seen so far
-
-    total_hint = 8_841_823
-
-    for row in tqdm(corpus, total=total_hint, desc="Sampling corpus", unit="passages"):
-        pid = str(row["_id"])
-        text = row["text"][:512]    # MiniLM practical context
-
+    print("Streaming corpus via ir_datasets...")
+    for doc in tqdm(corpus.docs_iter(), total=8_841_823, desc="Sampling", unit="passages"):
+        pid, text = doc.doc_id, doc.text[:512]
         if pid in relevant_pids:
             kept[pid] = text
             continue
-
-        # Reservoir sampling for fill passages
         n_seen_fill += 1
         if len(reservoir) < n_fill:
             reservoir.append((pid, text))
@@ -88,96 +85,83 @@ def reservoir_sample(
             j = random.randint(0, n_seen_fill - 1)
             if j < n_fill:
                 reservoir[j] = (pid, text)
-
-        if not smoke and n_seen_fill > 50_000_000:
-            break  # safety cap
+        if smoke and n_seen_fill >= 200_000:
+            break
 
     for pid, text in reservoir:
         kept[pid] = text
-
+    print(f"  Sampled {len(kept):,} passages ({len(relevant_pids):,} relevant + {len(reservoir):,} fill)")
     return kept
 
 
-# ── index ────────────────────────────────────────────────────────────────────
+def build_or_load_index(index_dir: str, passages: dict[str, str]) -> tuple[faiss.Index, list[str]]:
+    path = Path(index_dir)
+    index_file = path / "index.faiss"
+    ids_file = path / "ids.json"
 
-def get_collection(db_path: str):
-    client = chromadb.PersistentClient(path=db_path)
-    ef = SentenceTransformerEmbeddingFunction(model_name=MODEL)
-    return client, ef
+    if index_file.exists() and ids_file.exists():
+        pid_list = json.loads(ids_file.read_text())
+        if len(pid_list) >= len(passages):
+            print(f"Cached FAISS index: {len(pid_list):,} passages. Loading...")
+            index = faiss.read_index(str(index_file))
+            return index, pid_list
+        print(f"Cached index has {len(pid_list):,} passages — rebuilding.")
 
+    path.mkdir(parents=True, exist_ok=True)
+    model = SentenceTransformer(MODEL_NAME)
+    pid_list = list(passages.keys())
+    texts = [passages[pid] for pid in pid_list]
 
-def build_index(
-    db_path: str, passages: dict[str, str]
-) -> chromadb.Collection:
-    client, ef = get_collection(db_path)
+    print(f"\nEmbedding {len(texts):,} passages with {MODEL_NAME}...")
+    all_vecs: list[np.ndarray] = []
+    for start in tqdm(range(0, len(texts), EMBED_BATCH), desc="Embedding", unit="batch"):
+        vecs = model.encode(texts[start : start + EMBED_BATCH], show_progress_bar=False, convert_to_numpy=True)
+        all_vecs.append(vecs.astype(np.float32))
 
-    try:
-        col = client.get_collection(COLLECTION, embedding_function=ef)
-        if col.count() >= len(passages):
-            print(f"Cached index: {col.count():,} passages. Skipping rebuild.")
-            return col
-        print(f"Cached index has {col.count():,} passages — rebuilding.")
-        client.delete_collection(COLLECTION)
-    except Exception:
-        pass
+    matrix = np.vstack(all_vecs)
+    faiss.normalize_L2(matrix)
 
-    col = client.create_collection(COLLECTION, embedding_function=ef)
+    index = faiss.IndexFlatIP(DIM)
+    index.add(matrix)
+    faiss.write_index(index, str(index_file))
+    ids_file.write_text(json.dumps(pid_list))
+    print(f"Saved FAISS index: {index.ntotal:,} passages → {index_dir}\n")
+    return index, pid_list
 
-    items = list(passages.items())
-    print(f"\nIndexing {len(items):,} passages...")
-    for start in tqdm(range(0, len(items), INDEX_BATCH), desc="Embedding", unit="batch"):
-        batch = items[start : start + INDEX_BATCH]
-        pids = [pid for pid, _ in batch]
-        texts = [text for _, text in batch]
-        col.add(documents=texts, ids=pids)
-
-    print(f"Indexed {col.count():,} passages.\n")
-    return col
-
-
-# ── eval ─────────────────────────────────────────────────────────────────────
 
 def eval_mrr(
-    col: chromadb.Collection,
+    index: faiss.Index,
+    pid_list: list[str],
     qrels: dict[str, set[str]],
+    queries: dict[str, str],
     n_queries: int | None,
 ) -> tuple[float, int]:
-    from datasets import load_dataset
-
-    print("Loading queries...")
-    query_rows = load_dataset("BeIR/msmarco", "queries", split="queries")
-
-    queries = [
-        (str(row["_id"]), row["text"])
-        for row in query_rows
-        if str(row["_id"]) in qrels
-    ]
+    model = SentenceTransformer(MODEL_NAME)
+    query_items = list(queries.items())
     if n_queries:
-        queries = queries[:n_queries]
+        query_items = query_items[:n_queries]
 
-    print(f"Evaluating {len(queries):,} queries...\n")
+    print(f"Evaluating {len(query_items):,} queries...\n")
     mrr_sum = 0.0
-    for qid, qtext in tqdm(queries, desc="Querying", unit="q"):
-        results = col.query(query_texts=[qtext], n_results=TOP_K)
-        for rank, pid in enumerate(results["ids"][0], 1):
-            if pid in qrels.get(qid, set()):
+    for qid, qtext in tqdm(query_items, desc="Querying", unit="q"):
+        qvec = model.encode([qtext], convert_to_numpy=True).astype(np.float32)
+        faiss.normalize_L2(qvec)
+        _, idxs = index.search(qvec, TOP_K)
+        relevant = qrels.get(qid, set())
+        for rank, idx in enumerate(idxs[0], 1):
+            if idx >= 0 and pid_list[idx] in relevant:
                 mrr_sum += 1.0 / rank
                 break
 
-    return mrr_sum / len(queries), len(queries)
+    return mrr_sum / len(query_items), len(query_items)
 
-
-# ── main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db", default="~/.mcp-kb/msmarco", help="ChromaDB path")
+    parser.add_argument("--index-dir", default="~/.mcp-kb/msmarco-faiss")
     parser.add_argument("--passages", type=int, default=1_100_000)
-    parser.add_argument("--queries", type=int, default=None, help="Cap queries for testing")
-    parser.add_argument(
-        "--smoke", action="store_true",
-        help="Quick smoke test: 10K sample passages, 50 queries"
-    )
+    parser.add_argument("--queries", type=int, default=None)
+    parser.add_argument("--smoke", action="store_true", help="~210K corpus scan, 50 queries")
     args = parser.parse_args()
 
     if args.smoke:
@@ -185,17 +169,17 @@ def main():
         args.queries = 50
 
     random.seed(42)
-    db_path = str(Path(args.db).expanduser())
+    index_dir = str(Path(args.index_dir).expanduser())
 
-    qrels, relevant_pids = load_qrels()
+    qrels, relevant_pids, queries = load_qrels_and_queries()
     passages = reservoir_sample(args.passages, relevant_pids, smoke=args.smoke)
-    col = build_index(db_path, passages)
-    mrr, n_queries = eval_mrr(col, qrels, args.queries)
+    index, pid_list = build_or_load_index(index_dir, passages)
+    mrr, n_queries = eval_mrr(index, pid_list, qrels, queries, args.queries)
 
     bar = "─" * 46
     print(f"\n{bar}")
     print(f"  Benchmark   MS MARCO Passage Ranking (dev)")
-    print(f"  Corpus      {col.count():,} passages (reservoir-sampled)")
+    print(f"  Corpus      {index.ntotal:,} passages (reservoir-sampled)")
     print(f"  Queries     {n_queries:,}")
     print(f"  Metric      MRR@{TOP_K}")
     print(bar)
