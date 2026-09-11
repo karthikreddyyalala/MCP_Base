@@ -2,6 +2,8 @@
 
 ![CI](https://github.com/karthikreddyyalala/MCP_Base/actions/workflows/tests.yml/badge.svg)
 
+**[Live demo → mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
+
 Every company has internal docs — runbooks, onboarding guides, API references — sitting in a folder somewhere, completely invisible to the AI tools their teams use every day. This project fixes that.
 
 It's an MCP server that indexes a folder of markdown files and gives Claude Desktop (or any MCP client) two tools: one to search those docs semantically, one to list what's available. Answers come with exact citations — `[source: runbook.md:L18-L24]` — so you always know where the information came from.
