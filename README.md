@@ -4,39 +4,44 @@
 
 **[mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
 
-An MCP server that gives Claude Desktop semantic search over your private markdown docs — runbooks, API references, onboarding guides — without uploading them anywhere. Ask a question, get an answer with an exact line citation from your actual files.
+Give Claude Desktop semantic search over your private markdown docs. Ask a question, get a cited answer from your actual files — nothing uploaded anywhere.
 
 ---
 
-## Why I built this
+## The problem
 
-I was applying to Anthropic and DevRev. Both had MCP in the job description. I'd read the spec but hadn't built anything with it, so I picked a real problem to solve — internal docs being invisible to AI — and built this over a few weeks to understand the protocol from the inside.
+Your team has docs. Runbooks, onboarding guides, API references. Claude has no idea they exist.
 
-The thing I kept thinking about while building it: most RAG demos tell you an answer but don't tell you where it came from. That's fine for a demo, not fine for a team relying on it. So every result in this comes with a line number. You can open the file and verify it yourself.
+You could upload them manually every conversation. But that sends your internal files to a third-party server, and you'd have to do it every time. This is the alternative: index them once locally, wire up the MCP server, and Claude can search them on its own whenever it needs to.
 
 ---
 
-## System Architecture
-
-### Indexing Pipeline — run once, fully offline
+## How it works
 
 ![System architecture](docs/images/system-overview.svg)
 
-Run `index.py` once. Point the MCP server at Claude Desktop. Ask questions — get answers from your actual files with line citations.
+Two steps:
+
+**Index** — run `index.py` once. It reads your `.md` files, splits them into 400-token chunks (50-token overlap so nothing gets cut mid-sentence), embeds each chunk with `all-MiniLM-L6-v2`, and saves everything to ChromaDB on your local disk. The model downloads once from HuggingFace, then all inference is offline.
+
+**Serve** — `server.py` runs in the background and registers two tools with Claude Desktop over stdio: `search_docs` and `list_docs`. When you ask Claude a question, it calls `search_docs`, gets back the top 5 relevant chunks with line citations, and answers from there.
+
+The docs never leave your machine. Only the retrieved snippet (one paragraph, basically) enters the conversation.
 
 ---
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/karthikreddyyalala/MCP_Base.git
-cd MCP_Base
+git clone https://github.com/karthikreddyyalala/MCP_Knowledge_Base.git
+cd MCP_Knowledge_Base
 pip install -e .
 
-# Index the included example docs
 python3 index.py --docs ./example-docs
+```
 
-# Confirm the server starts and lists its tools
+Test the server starts:
+```bash
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}\n' \
   | PYTHONPATH=. python3 src/server.py
 ```
@@ -45,17 +50,17 @@ printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion
 
 ## Connect to Claude Desktop
 
-Add this to `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac:
 
 ```json
 {
   "mcpServers": {
     "knowledge-base": {
       "command": "python3",
-      "args": ["/absolute/path/to/MCP_Base/src/server.py"],
+      "args": ["/absolute/path/to/src/server.py"],
       "env": {
-        "PYTHONPATH": "/absolute/path/to/MCP_Base",
-        "KB_DOCS_PATH": "/absolute/path/to/your/docs",
+        "PYTHONPATH": "/absolute/path/to/MCP_Knowledge_Base",
+        "KB_DOCS_PATH": "/path/to/your/docs",
         "KB_DB_PATH": "/Users/yourname/.mcp-kb/chroma"
       }
     }
@@ -63,23 +68,19 @@ Add this to `~/Library/Application Support/Claude/claude_desktop_config.json` (M
 }
 ```
 
-Restart Claude Desktop. You'll see a hammer icon in the chat input — that's your knowledge base. Try:
-
-- *"What docs do you have access to?"*
-- *"How do I roll back a bad deployment?"*
-- *"What authentication does the API require?"*
+Restart Claude Desktop. Hammer icon appears in the chat input. Try asking: *"how do I roll back a bad deployment?"*
 
 ---
 
-## Example output
+## What you get back
 
 ```
 [source: deployment-runbook.md:L8-L14]
 If error rate spikes, run rollback: ./scripts/rollback.sh <previous-sha>
-This redeploys the previous image tag. Takes ~3 minutes. Notify #incidents in Slack.
+Takes ~3 minutes. Notify #incidents in Slack.
 ```
 
-The citation tells you exactly where in the file that answer came from. You can verify it, share it, or update it.
+Line number means you can open the file and verify it. That matters more than it sounds — a system that tells you something without telling you where it came from is one you can't trust in production.
 
 ---
 
@@ -87,62 +88,46 @@ The citation tells you exactly where in the file that answer came from. You can 
 
 | Tool | What it does |
 |------|-------------|
-| `search_docs(query)` | Semantic search over indexed docs. Returns top-5 chunks with `[source: file.md:L42-L58]` citations. |
-| `list_docs()` | Lists every markdown file currently in the index. |
+| `search_docs(query)` | Semantic search, returns top-5 chunks with `[source: file.md:L42-L58]` |
+| `list_docs()` | Lists every indexed markdown file |
 
 ---
 
-## Observability with Arize Phoenix
-
-When tracing is enabled, every `search_docs` call is recorded as a retrieval span in [Arize Phoenix](https://phoenix.arize.com/) — the open-source LLM observability platform used in production at teams like Replit and Harvey. You can see exactly which chunks were retrieved for each query, spot retrieval failures, and diagnose why a bad answer was returned.
+## Tracing with Arize Phoenix
 
 ```bash
-# Install the tracing extra
 pip install -e ".[tracing]"
-
-# Terminal 1 — start the Phoenix UI (opens http://localhost:6006)
-python3 -m phoenix.server.main serve
-
-# Terminal 2 — run the MCP server with tracing on
+python3 -m phoenix.server.main serve   # opens http://localhost:6006
 PHOENIX_ENABLED=1 PYTHONPATH=. python3 src/server.py
 ```
 
-Every query from Claude Desktop now shows up as a span in the Phoenix trace view with the query text, retrieved chunk sources, and citation metadata.
+Shows every `search_docs` call as a retrieval span — query text, which chunks were returned, citation metadata. Useful for debugging why a bad answer came back.
+
+Used Phoenix over RAGAS because this project is a retriever, not a generator. RAGAS measures generation quality (`faithfulness`, `answer_relevancy`) which Claude handles downstream — and it needs an API key, which breaks the offline guarantee.
 
 ---
 
-## Technical decisions worth knowing about
+## Decisions
 
-**Why ChromaDB over Pinecone?** The README promise is "deploy in 5 minutes." Requiring a Pinecone signup breaks that. ChromaDB is a single pip install, stores vectors on disk, and needs no account. The right tool for local-first software.
+**ChromaDB not Pinecone** — Pinecone needs an account. ChromaDB is one pip install, stores on disk, zero setup. For a local-first tool that's the right call.
 
-**Why `all-MiniLM-L6-v2`?** It's 80MB, downloads once, runs fully offline after that, and produces strong semantic embeddings for English prose. For a knowledge base over internal documentation, it's more than sufficient.
+**all-MiniLM-L6-v2** — 80MB, downloads once, runs offline forever. Strong enough for English prose docs.
 
-**Why line-range citations?** A RAG system that tells you something without telling you where it came from is a liability. Line numbers mean you can open the source file, verify the answer, and notice when documentation is out of date.
+**400-token chunks, 50-token overlap** — big enough to capture a full thought, small enough to retrieve precisely. Overlap means nothing important gets split across a boundary.
 
-**Why 400-token chunks with 50-token overlap?** Long enough to capture full thoughts, short enough to retrieve precisely. The overlap prevents context from being cut at chunk boundaries.
-
-**Why Arize Phoenix over RAGAS?** This server is a retriever — Claude handles generation downstream. RAGAS's headline metrics (`faithfulness`, `answer_relevancy`) score generation quality, which is a component this project doesn't control. Its LLM-judged scoring also requires an API key that would break the offline guarantee. Phoenix gives span-level retrieval observability — the right instrument for the right layer — and runs fully locally with no account required.
+**Line citations not just filenames** — filenames tell you which doc. Line numbers tell you exactly where, so you can verify and notice when docs go stale.
 
 ---
 
 ## Stack
 
-| Component | Library |
-|-----------|---------|
-| MCP server | [`mcp`](https://github.com/anthropics/mcp) — Anthropic's official SDK |
-| Vector store | [`chromadb`](https://www.trychroma.com/) — local, no account |
-| Embeddings | [`sentence-transformers`](https://www.sbert.net/) `all-MiniLM-L6-v2` |
-| CLI | [`typer`](https://typer.tiangolo.com/) |
-
----
-
-## Using your own docs
-
-```bash
-python3 index.py --docs /path/to/your/docs --db /path/to/store/vectors
-```
-
-Update `KB_DOCS_PATH` and `KB_DB_PATH` in the Claude Desktop config to match. Re-run `index.py` whenever your docs change — it rebuilds the index from scratch each time.
+| | |
+|---|---|
+| MCP server | [`mcp`](https://github.com/anthropics/mcp) |
+| Vector store | [`chromadb`](https://www.trychroma.com/) |
+| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` |
+| Observability | [Arize Phoenix](https://phoenix.arize.com/) |
+| CLI | `typer` |
 
 ---
 
@@ -152,48 +137,24 @@ Update `KB_DOCS_PATH` and `KB_DB_PATH` in the Claude Desktop config to match. Re
 pytest tests/ -v
 ```
 
-10 tests covering chunking logic (including header-aware behavior), index construction, search result format, citation format, and source listing.
+10 tests — chunking logic, index construction, search result format, citation format, source listing.
 
 ---
 
 ## Benchmark
 
-MS MARCO passage ranking, dev set. Streams the 8.8M-passage corpus, reservoir-samples 1.1M (keeping all qrel-relevant passages), indexes, evaluates MRR@10 against the 6,980 official queries.
+MS MARCO passage ranking, dev set. Reservoir-sampled 1.1M passages from the full 8.8M corpus (keeping all qrel-relevant passages), indexed, then evaluated MRR@10 against 6,980 official queries.
 
 ```
 MRR@10 = 0.585   ████████████████████████████████████████████████████
 BM25   = 0.167   ██████████████
 
-3.5× above the keyword-search baseline.
-Corpus: 1,100,000 passages · Queries: 6,980
+3.5× above the keyword search baseline.
 ```
 
-First run ~90 min (sampling + indexing). Subsequent runs ~20 min (cached index). Stored at `~/.mcp-kb/msmarco`.
+First run ~90 min. Subsequent runs ~20 min (cached index at `~/.mcp-kb/msmarco`).
 
 ```bash
 pip install -e ".[benchmark]"
 PYTHONPATH=. python3 scripts/eval_msmarco.py
 ```
-
-### Quick smoke test
-
-```bash
-PYTHONPATH=. python3 scripts/eval_msmarco.py --smoke
-```
-
-Streams full corpus (~3 min) but indexes only 10K passages and evaluates 50 queries. Verifies the pipeline end-to-end.
-
-### Example doc smoke test
-
-```bash
-PYTHONPATH=. python3 eval.py --docs ./example-docs
-```
-
-```
-Metric             Value
--------------------------
-Recall@5           1.000  (20/20)
-MRR                0.925
-```
-
-20 gold questions across the 3 bundled example docs. Useful for verifying chunking behavior after changes — not a meaningful benchmark (9 chunks total).
