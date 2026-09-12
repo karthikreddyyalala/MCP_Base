@@ -2,7 +2,7 @@
   <rect width="900" height="520" fill="#0f1117"/>
 
   <!-- Title -->
-  <text x="450" y="38" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="600" letter-spacing="0.5">MCP Knowledge Base — System Overview</text>
+  <text x="450" y="38" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="600" letter-spacing="0.5">MCP Knowledge Base - System Overview</text>
 
   <!-- ── INDEXING SIDE ── -->
   <text x="200" y="76" text-anchor="middle" fill="#64748b" font-size="10" letter-spacing="1.5" font-weight="600">INDEXING  (run once)</text>
@@ -98,11 +98,11 @@
   <rect x="40" y="340" width="820" height="80" rx="8" fill="#0a1628" stroke="#1e3a5f" stroke-width="1" stroke-dasharray="5 3"/>
   <text x="60" y="364" fill="#38bdf8" font-size="11" font-weight="600">Privacy model</text>
   <text x="60" y="384" fill="#64748b" font-size="10">Everything inside the dashed box above stays on your machine.</text>
-  <text x="60" y="400" fill="#64748b" font-size="10">Only the retrieved snippet (~400 tokens) enters the conversation with Claude — never your full doc corpus.</text>
+  <text x="60" y="400" fill="#64748b" font-size="10">Only the retrieved snippet (~400 tokens) enters the conversation with Claude - never your full doc corpus.</text>
   <text x="60" y="414" fill="#64748b" font-size="10">The model weights download once from HuggingFace, then all inference runs offline.</text>
 
   <!-- ── BENCHMARK ── -->
-  <text x="450" y="458" text-anchor="middle" fill="#64748b" font-size="10" letter-spacing="1.5" font-weight="600">MS MARCO BENCHMARK — MRR@10</text>
+  <text x="450" y="458" text-anchor="middle" fill="#64748b" font-size="10" letter-spacing="1.5" font-weight="600">MS MARCO BENCHMARK - MRR@10</text>
 
   <!-- BM25 bar -->
   <rect x="290" y="467" width="67" height="22" rx="3" fill="#1e293b" stroke="#475569" stroke-width="1"/>

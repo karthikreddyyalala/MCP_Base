@@ -4,7 +4,7 @@
 
 **[mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
 
-Give Claude Desktop semantic search over your private markdown docs. Ask a question, get a cited answer from your actual files — nothing uploaded anywhere.
+Give Claude Desktop semantic search over your private markdown docs. Ask a question, get a cited answer from your actual files - nothing uploaded anywhere.
 
 ---
 
@@ -22,9 +22,9 @@ You could upload them manually every conversation. But that sends your internal 
 
 Two steps:
 
-**Index** — run `index.py` once. It reads your `.md` files, splits them into 400-token chunks (50-token overlap so nothing gets cut mid-sentence), embeds each chunk with `all-MiniLM-L6-v2`, and saves everything to ChromaDB on your local disk. The model downloads once from HuggingFace, then all inference is offline.
+**Index** - run `index.py` once. It reads your `.md` files, splits them into 400-token chunks (50-token overlap so nothing gets cut mid-sentence), embeds each chunk with `all-MiniLM-L6-v2`, and saves everything to ChromaDB on your local disk. The model downloads once from HuggingFace, then all inference is offline.
 
-**Serve** — `server.py` runs in the background and registers two tools with Claude Desktop over stdio: `search_docs` and `list_docs`. When you ask Claude a question, it calls `search_docs`, gets back the top 5 relevant chunks with line citations, and answers from there.
+**Serve** - `server.py` runs in the background and registers two tools with Claude Desktop over stdio: `search_docs` and `list_docs`. When you ask Claude a question, it calls `search_docs`, gets back the top 5 relevant chunks with line citations, and answers from there.
 
 The docs never leave your machine. Only the retrieved snippet (one paragraph, basically) enters the conversation.
 
@@ -80,7 +80,7 @@ If error rate spikes, run rollback: ./scripts/rollback.sh <previous-sha>
 Takes ~3 minutes. Notify #incidents in Slack.
 ```
 
-Line number means you can open the file and verify it. That matters more than it sounds — a system that tells you something without telling you where it came from is one you can't trust in production.
+Line number means you can open the file and verify it. That matters more than it sounds - a system that tells you something without telling you where it came from is one you can't trust in production.
 
 ---
 
@@ -101,21 +101,21 @@ python3 -m phoenix.server.main serve   # opens http://localhost:6006
 PHOENIX_ENABLED=1 PYTHONPATH=. python3 src/server.py
 ```
 
-Shows every `search_docs` call as a retrieval span — query text, which chunks were returned, citation metadata. Useful for debugging why a bad answer came back.
+Shows every `search_docs` call as a retrieval span - query text, which chunks were returned, citation metadata. Useful for debugging why a bad answer came back.
 
-Used Phoenix over RAGAS because this project is a retriever, not a generator. RAGAS measures generation quality (`faithfulness`, `answer_relevancy`) which Claude handles downstream — and it needs an API key, which breaks the offline guarantee.
+Used Phoenix over RAGAS because this project is a retriever, not a generator. RAGAS measures generation quality (`faithfulness`, `answer_relevancy`) which Claude handles downstream - and it needs an API key, which breaks the offline guarantee.
 
 ---
 
 ## Decisions
 
-**ChromaDB not Pinecone** — Pinecone needs an account. ChromaDB is one pip install, stores on disk, zero setup. For a local-first tool that's the right call.
+**ChromaDB not Pinecone** - Pinecone needs an account. ChromaDB is one pip install, stores on disk, zero setup. For a local-first tool that's the right call.
 
-**all-MiniLM-L6-v2** — 80MB, downloads once, runs offline forever. Strong enough for English prose docs.
+**all-MiniLM-L6-v2** - 80MB, downloads once, runs offline forever. Strong enough for English prose docs.
 
-**400-token chunks, 50-token overlap** — big enough to capture a full thought, small enough to retrieve precisely. Overlap means nothing important gets split across a boundary.
+**400-token chunks, 50-token overlap** - big enough to capture a full thought, small enough to retrieve precisely. Overlap means nothing important gets split across a boundary.
 
-**Line citations not just filenames** — filenames tell you which doc. Line numbers tell you exactly where, so you can verify and notice when docs go stale.
+**Line citations not just filenames** - filenames tell you which doc. Line numbers tell you exactly where, so you can verify and notice when docs go stale.
 
 ---
 
@@ -125,7 +125,7 @@ Used Phoenix over RAGAS because this project is a retriever, not a generator. RA
 |---|---|
 | MCP server | [`mcp`](https://github.com/anthropics/mcp) |
 | Vector store | [`chromadb`](https://www.trychroma.com/) |
-| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` |
+| Embeddings | `sentence-transformers` - `all-MiniLM-L6-v2` |
 | Observability | [Arize Phoenix](https://phoenix.arize.com/) |
 | CLI | `typer` |
 
@@ -137,7 +137,7 @@ Used Phoenix over RAGAS because this project is a retriever, not a generator. RA
 pytest tests/ -v
 ```
 
-10 tests — chunking logic, index construction, search result format, citation format, source listing.
+10 tests - chunking logic, index construction, search result format, citation format, source listing.
 
 ---
 
