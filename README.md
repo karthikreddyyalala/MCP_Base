@@ -18,7 +18,7 @@ You could upload them manually every conversation. But that sends your internal 
 
 ## How it works
 
-<img src="docs/images/architecture.png" width="720" alt="System architecture"/>
+<img src="https://raw.githubusercontent.com/karthikreddyyalala/MCP_Knowledge_Base/main/docs/images/architecture.png" width="720" alt="System architecture"/>
 
 Two steps:
 
