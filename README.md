@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/karthikreddyyalala/MCP_Base/actions/workflows/tests.yml/badge.svg)
 
-**[Live demo → mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
+**[mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
 
 Every company has internal docs — runbooks, onboarding guides, API references — sitting in a folder somewhere, completely invisible to the AI tools their teams use every day. This project fixes that.
 
