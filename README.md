@@ -4,21 +4,15 @@
 
 **[mcp-kb-site.vercel.app](https://mcp-kb-site.vercel.app)**
 
-Every company has internal docs — runbooks, onboarding guides, API references — sitting in a folder somewhere, completely invisible to the AI tools their teams use every day. This project fixes that.
-
-It's an MCP server that indexes a folder of markdown files and gives Claude Desktop (or any MCP client) two tools: one to search those docs semantically, one to list what's available. Answers come with exact citations — `[source: runbook.md:L18-L24]` — so you always know where the information came from.
-
-No Pinecone account. No OpenAI key. No cloud infrastructure. Everything runs locally.
+An MCP server that gives Claude Desktop semantic search over your private markdown docs — runbooks, API references, onboarding guides — without uploading them anywhere. Ask a question, get an answer with an exact line citation from your actual files.
 
 ---
 
 ## Why I built this
 
-Three job listings I was reading — Anthropic, DevRev, and ICON — all mentioned MCP in their requirements. Not as a nice-to-have. As a core skill.
+I was applying to Anthropic and DevRev. Both had MCP in the job description. I'd read the spec but hadn't built anything with it, so I picked a real problem to solve — internal docs being invisible to AI — and built this over a few weeks to understand the protocol from the inside.
 
-I wanted to understand it from the inside, not just read the docs. So I picked a problem I kept hearing about in engineering teams: "we have all this internal documentation but our AI assistant doesn't know about it." Built the thing that solves it.
-
-The interesting part wasn't wiring up the vector store. It was figuring out what makes a RAG system actually trustworthy — which is why every result includes a line number citation. A system that tells you something without telling you *where* it found it isn't useful in a professional context. You can't verify it, you can't trust it, you can't improve it.
+The thing I kept thinking about while building it: most RAG demos tell you an answer but don't tell you where it came from. That's fine for a demo, not fine for a team relying on it. So every result in this comes with a line number. You can open the file and verify it yourself.
 
 ---
 
@@ -26,65 +20,9 @@ The interesting part wasn't wiring up the vector store. It was figuring out what
 
 ### Indexing Pipeline — run once, fully offline
 
-```mermaid
-flowchart LR
-    A[/"📁 your-docs/*.md"/] -->|glob + read| B["index.py"]
-    B -->|400-token chunks\n50-token overlap| C["all-MiniLM-L6-v2\n384-dim embeddings"]
-    C -->|L2-normalized\nfloat32 vectors| D[("ChromaDB\n~/.mcp-kb/chroma/")]
+![System architecture](docs/images/system-overview.svg)
 
-    style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-    style B fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style C fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style D fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-```
-
-### Query Flow — what happens when you ask a question
-
-```mermaid
-flowchart TD
-    U(["👤 You"]) -->|"how do I roll back?"| CD["Claude Desktop"]
-    CD -->|"tools/call search_docs(query)\nstdio transport · JSON-RPC"| S["server.py\nMCP Server"]
-    S -->|encode query| E["all-MiniLM-L6-v2\n384-dim embedding"]
-    E -->|cosine similarity\ntop-k=5| DB[("ChromaDB\nlocal disk")]
-    DB -->|"chunks + metadata\n[source: runbook.md:L8-L14]"| S
-    S -->|inject into context| CD
-    CD -->|grounded answer\nwith citations| U
-
-    style U fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-    style CD fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style S fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style E fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style DB fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-```
-
-### Privacy Model — what leaves your machine
-
-```mermaid
-flowchart LR
-    subgraph local ["🖥️  Your Machine (nothing leaves)"]
-        D[/"Private Docs"/] --> idx["index.py"]
-        idx --> db[("ChromaDB")]
-        db --> srv["server.py"]
-    end
-
-    subgraph cloud ["☁️  Anthropic API"]
-        api["Claude"]
-    end
-
-    srv -->|"retrieved snippet only\n~400 tokens per query"| cd["Claude Desktop"]
-    cd <-->|"conversation + snippet"| api
-
-    style local fill:#0f172a,stroke:#334155,color:#e2e8f0
-    style cloud fill:#0f172a,stroke:#334155,color:#e2e8f0
-    style D fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-    style db fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
-    style idx fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style srv fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style cd fill:#0f172a,stroke:#475569,color:#e2e8f0
-    style api fill:#1e293b,stroke:#334155,color:#e2e8f0
-```
-
-Run the indexer once. Connect the server to Claude Desktop. Ask questions in plain English. Get cited answers from your actual documentation.
+Run `index.py` once. Point the MCP server at Claude Desktop. Ask questions — get answers from your actual files with line citations.
 
 ---
 
@@ -218,35 +156,24 @@ pytest tests/ -v
 
 ---
 
-## Retrieval Evaluation
+## Benchmark
 
-### MS MARCO Benchmark (industry standard)
+MS MARCO passage ranking, dev set. Streams the 8.8M-passage corpus, reservoir-samples 1.1M (keeping all qrel-relevant passages), indexes, evaluates MRR@10 against the 6,980 official queries.
+
+```
+MRR@10 = 0.585   ████████████████████████████████████████████████████
+BM25   = 0.167   ██████████████
+
+3.5× above the keyword-search baseline.
+Corpus: 1,100,000 passages · Queries: 6,980
+```
+
+First run ~90 min (sampling + indexing). Subsequent runs ~20 min (cached index). Stored at `~/.mcp-kb/msmarco`.
 
 ```bash
 pip install -e ".[benchmark]"
 PYTHONPATH=. python3 scripts/eval_msmarco.py
 ```
-
-Streams the 8.8M-passage MS MARCO corpus, reservoir-samples 1.1M passages (guaranteeing all qrel-relevant passages are included), indexes with `all-MiniLM-L6-v2`, then evaluates MRR@10 against the 6,980 official dev queries.
-
-```mermaid
-%%{init: {"xyChart": {"width": 600, "height": 300}} }%%
-xychart-beta
-    title "MRR@10 — MS MARCO Dev Set (1.1M passages, 6,980 queries)"
-    x-axis ["BM25 Baseline", "This System (all-MiniLM-L6-v2)"]
-    y-axis "MRR@10" 0 --> 0.7
-    bar [0.167, 0.585]
-```
-
-| | Value |
-|---|---|
-| **Score (MRR@10)** | **0.585** |
-| BM25 baseline | 0.167 |
-| Improvement | **3.5× above keyword search** |
-| Corpus | 1,100,000 passages |
-| Queries | 6,980 (official MS MARCO dev set) |
-
-First run takes ~90 minutes (sampling + indexing). Subsequent runs use the cached index (~20 min eval only). Index stored at `~/.mcp-kb/msmarco`.
 
 ### Quick smoke test
 
