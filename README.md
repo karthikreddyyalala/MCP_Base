@@ -22,25 +22,66 @@ The interesting part wasn't wiring up the vector store. It was figuring out what
 
 ---
 
-## What it does
+## System Architecture
 
+### Indexing Pipeline — run once, fully offline
+
+```mermaid
+flowchart LR
+    A[/"📁 your-docs/*.md"/] -->|glob + read| B["index.py"]
+    B -->|400-token chunks\n50-token overlap| C["all-MiniLM-L6-v2\n384-dim embeddings"]
+    C -->|L2-normalized\nfloat32 vectors| D[("ChromaDB\n~/.mcp-kb/chroma/")]
+
+    style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style B fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style C fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style D fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
 ```
-your-docs/            ← any folder of .md files
-      │
-      ▼
-python3 index.py --docs ./your-docs
-      │  chunks text → embeds with all-MiniLM-L6-v2 (offline)
-      ▼
-~/.mcp-kb/chroma/     ← vector store on disk
-      │
-      ▼
-python3 src/server.py ← MCP server (stdio transport)
-      │
-      ├─ search_docs("how do I roll back?")
-      │      → top-5 chunks + [source: runbook.md:L8-L14]
-      │
-      └─ list_docs()
-             → "api-reference.md, deployment-runbook.md, onboarding.md"
+
+### Query Flow — what happens when you ask a question
+
+```mermaid
+flowchart TD
+    U(["👤 You"]) -->|"how do I roll back?"| CD["Claude Desktop"]
+    CD -->|"tools/call search_docs(query)\nstdio transport · JSON-RPC"| S["server.py\nMCP Server"]
+    S -->|encode query| E["all-MiniLM-L6-v2\n384-dim embedding"]
+    E -->|cosine similarity\ntop-k=5| DB[("ChromaDB\nlocal disk")]
+    DB -->|"chunks + metadata\n[source: runbook.md:L8-L14]"| S
+    S -->|inject into context| CD
+    CD -->|grounded answer\nwith citations| U
+
+    style U fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style CD fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style S fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style E fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style DB fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+```
+
+### Privacy Model — what leaves your machine
+
+```mermaid
+flowchart LR
+    subgraph local ["🖥️  Your Machine (nothing leaves)"]
+        D[/"Private Docs"/] --> idx["index.py"]
+        idx --> db[("ChromaDB")]
+        db --> srv["server.py"]
+    end
+
+    subgraph cloud ["☁️  Anthropic API"]
+        api["Claude"]
+    end
+
+    srv -->|"retrieved snippet only\n~400 tokens per query"| cd["Claude Desktop"]
+    cd <-->|"conversation + snippet"| api
+
+    style local fill:#0f172a,stroke:#334155,color:#e2e8f0
+    style cloud fill:#0f172a,stroke:#334155,color:#e2e8f0
+    style D fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style db fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style idx fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style srv fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style cd fill:#0f172a,stroke:#475569,color:#e2e8f0
+    style api fill:#1e293b,stroke:#334155,color:#e2e8f0
 ```
 
 Run the indexer once. Connect the server to Claude Desktop. Ask questions in plain English. Get cited answers from your actual documentation.
@@ -188,17 +229,22 @@ PYTHONPATH=. python3 scripts/eval_msmarco.py
 
 Streams the 8.8M-passage MS MARCO corpus, reservoir-samples 1.1M passages (guaranteeing all qrel-relevant passages are included), indexes with `all-MiniLM-L6-v2`, then evaluates MRR@10 against the 6,980 official dev queries.
 
+```mermaid
+%%{init: {"xyChart": {"width": 600, "height": 300}} }%%
+xychart-beta
+    title "MRR@10 — MS MARCO Dev Set (1.1M passages, 6,980 queries)"
+    x-axis ["BM25 Baseline", "This System (all-MiniLM-L6-v2)"]
+    y-axis "MRR@10" 0 --> 0.7
+    bar [0.167, 0.585]
 ```
-──────────────────────────────────────────────
-  Benchmark   MS MARCO Passage Ranking (dev)
-  Corpus      1,100,000 passages
-  Queries     6,980
-  Metric      MRR@10
-──────────────────────────────────────────────
-  Score       0.585          ← 1.1M passage subset, all qrel-relevant passages guaranteed present
-  BM25 base   0.167
-──────────────────────────────────────────────
-```
+
+| | Value |
+|---|---|
+| **Score (MRR@10)** | **0.585** |
+| BM25 baseline | 0.167 |
+| Improvement | **3.5× above keyword search** |
+| Corpus | 1,100,000 passages |
+| Queries | 6,980 (official MS MARCO dev set) |
 
 First run takes ~90 minutes (sampling + indexing). Subsequent runs use the cached index (~20 min eval only). Index stored at `~/.mcp-kb/msmarco`.
 
