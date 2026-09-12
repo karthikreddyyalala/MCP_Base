@@ -18,7 +18,7 @@ You could upload them manually every conversation. But that sends your internal 
 
 ## How it works
 
-![System architecture](docs/images/architecture.png)
+<img src="docs/images/architecture.png" width="720" alt="System architecture"/>
 
 Two steps:
 
