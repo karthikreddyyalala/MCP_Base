@@ -18,7 +18,7 @@ You could upload them manually every conversation. But that sends your internal 
 
 ## How it works
 
-![System architecture](docs/images/system-overview.svg)
+![System architecture](docs/images/architecture.png)
 
 Two steps:
 
